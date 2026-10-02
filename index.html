@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Contas da casa</title>
+<meta name="theme-color" content="#EAF0EC">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EAF0EC; --surface:#FFFFFF; --sunk:#F3F7F4; --ink:#13302A; --muted:#566C65; --line:#D2DDD7;
+  --p0:#A3245F; --p1:#1A6683;
+  --warn:#8A5A00; --warn-bg:#FBEBC0; --ok:#256B43; --ok-bg:#D8EEDF; --bad:#A8201A; --bad-bg:#F9DEDA;
+  --btn:#13302A; --btn-ink:#FFFFFF;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1916; --surface:#15231F; --sunk:#1B2C27; --ink:#E3EEE9; --muted:#9AB1A9; --line:#2B3E38;
+    --p0:#EE86B4; --p1:#72C3E0;
+    --warn:#F3C766; --warn-bg:#3A3017; --ok:#78D3A0; --ok-bg:#1B3427; --bad:#F59A90; --bad-bg:#3E201D;
+    --btn:#E3EEE9; --btn-ink:#0E1916;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1916; --surface:#15231F; --sunk:#1B2C27; --ink:#E3EEE9; --muted:#9AB1A9; --line:#2B3E38;
+  --p0:#EE86B4; --p1:#72C3E0;
+  --warn:#F3C766; --warn-bg:#3A3017; --ok:#78D3A0; --ok-bg:#1B3427; --bad:#F59A90; --bad-bg:#3E201D;
+  --btn:#E3EEE9; --btn-ink:#0E1916;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:84px}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:620px;margin:0 auto;padding:0 16px}
+
+/* topo */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:8px;height:56px}
+.top h1{flex:1;margin:0;font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-.01em;text-align:center}
+.iconbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer;font-size:18px;line-height:1}
+.iconbtn:disabled{opacity:.35;cursor:default}
+
+/* hero do acerto */
+.hero{padding:28px 0 20px}
+.acerto{font-family:var(--display);font-weight:700;font-size:clamp(28px,7.2vw,40px);line-height:1.08;letter-spacing:-.02em;margin:0 0 10px}
+.acerto .v{white-space:nowrap}
+.c0{color:var(--p0)} .c1{color:var(--p1)}
+.hero p.sub{margin:0;color:var(--muted)}
+.hero-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+
+.btn{border:0;border-radius:999px;padding:11px 18px;background:var(--btn);color:var(--btn-ink);font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.small{padding:7px 13px;font-size:14px}
+.btn.danger{background:transparent;color:var(--bad);border:1.5px solid var(--bad)}
+.link{background:none;border:0;padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:14px}
+:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+
+/* balança por pessoa */
+.balanca{display:grid;gap:14px;padding:18px;background:var(--surface);border-radius:18px;border:1px solid var(--line)}
+.pessoa-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pessoa-top .nome{font-family:var(--display);font-weight:700;font-size:18px;color:var(--c)}
+.pessoa-top .parte{font-weight:700}
+.barra{height:10px;border-radius:6px;background:var(--sunk);margin:6px 0 5px;overflow:hidden;border:1px solid var(--line)}
+.barra span{display:block;height:100%;background:var(--c);border-radius:6px}
+.pessoa-sub{display:flex;justify-content:space-between;gap:8px;font-size:14px;color:var(--muted);flex-wrap:wrap}
+.rendas{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--muted);padding-top:10px;border-top:1px dashed var(--line)}
+
+/* seções */
+section{margin-top:28px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.sec-h h2{font-family:var(--display);font-weight:700;font-size:21px;margin:0;letter-spacing:-.01em}
+.sec-h .meta{color:var(--muted);font-size:14px;text-align:right}
+
+/* lista de contas */
+.lista{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.lista li+li{border-top:1px solid var(--line)}
+.conta{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;width:100%;padding:13px 14px;background:none;border:0;text-align:left;cursor:pointer}
+.conta:hover{background:var(--sunk)}
+.dia{width:44px;height:44px;border-radius:12px;background:var(--sunk);border:1px solid var(--line);display:grid;place-items:center;line-height:1;font-family:var(--display);font-weight:700;font-size:17px}
+.dia small{display:block;font-family:var(--body);font-weight:400;font-size:10px;color:var(--muted);margin-bottom:2px}
+.conta .nm{font-weight:700;text-transform:capitalize}
+.conta .rg{font-size:13px;color:var(--muted)}
+.conta .dir{text-align:right}
+.conta .vl{font-weight:700}
+.chips{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;margin-top:3px}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)}
+.lista-foot{display:flex;justify-content:space-between;padding:12px 14px;background:var(--sunk);font-weight:700}
+
+/* movimentos */
+.mov{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:11px 14px}
+.mov .d{font-size:13px;color:var(--muted)}
+.mov .t{font-weight:700}
+.mov .x{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:none;cursor:pointer;color:var(--muted)}
+.vazio{padding:18px 14px;color:var(--muted);text-align:center}
+
+/* histórico */
+.hist-row{display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:center;padding:12px 14px}
+.hbar{height:12px;border-radius:6px;background:var(--sunk);overflow:hidden;border:1px solid var(--line)}
+.hbar span{display:block;height:100%;background:var(--ink);opacity:.75}
+.tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:460px}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;text-transform:capitalize;position:sticky;left:0;background:var(--surface)}
+th{font-weight:700;color:var(--muted);font-size:13px}
+td.up{color:var(--bad)} td.down{color:var(--ok)}
+.nota{font-size:14px;color:var(--muted);margin:10px 2px 0}
+
+/* ajustes */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.card p{margin:0 0 10px}
+.card p:last-child{margin-bottom:0}
+
+/* abas */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .wrap{display:grid;grid-template-columns:repeat(3,1fr);height:62px}
+.tabs button{background:none;border:0;cursor:pointer;font-weight:700;color:var(--muted);font-size:15px;position:relative}
+.tabs button[aria-current="page"]{color:var(--ink)}
+.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--ink)}
+
+.aviso{margin-top:14px;padding:12px 14px;border-radius:14px;background:var(--warn-bg);color:var(--warn);font-size:14px}
+
+/* diálogo */
+dialog{border:0;padding:0;border-radius:22px;width:min(520px,calc(100vw - 24px));max-height:calc(100% - 32px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(10,25,20,.45)}
+.dlg{padding:22px 20px 18px;display:grid;gap:14px}
+.dlg h3{margin:0;font-family:var(--display);font-size:22px;letter-spacing:-.01em}
+.dlg .desc{margin:-6px 0 0;color:var(--muted);font-size:14px}
+.campo{display:grid;gap:5px}
+.campo span{font-size:14px;font-weight:700}
+.campo input,.campo select,.campo textarea{width:100%;padding:11px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--sunk)}
+.campo input:focus,.campo select:focus{border-color:var(--ink);outline:none}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;gap:8px;align-items:center;font-size:15px}
+.dlg-act{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
+.dlg-act .esq{margin-right:auto}
+.det{display:grid;gap:6px;padding:12px;border-radius:12px;background:var(--sunk);font-size:15px}
+.det div{display:flex;justify-content:space-between;gap:8px}
+
+.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--btn);color:var(--btn-ink);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:20;max-width:calc(100vw - 32px)}
+.estado{padding:60px 8px;text-align:center;color:var(--muted)}
+.login{max-width:380px;margin:0 auto;text-align:left;display:grid;gap:12px}
+.estado h2{font-family:var(--display);color:var(--ink);margin:0 0 8px}
+@media (prefers-reduced-motion:no-preference){ .barra span{transition:width .4s ease} }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <button class="iconbtn" id="prev" aria-label="Mês anterior">‹</button>
+  <h1 id="titulo">Contas da casa</h1>
+  <button class="iconbtn" id="next" aria-label="Próximo mês">›</button>
+</div></header>
+<main class="wrap" id="app"><div class="estado">Carregando…</div></main>
+<nav class="tabs" aria-label="Seções"><div class="wrap">
+  <button data-tab="mes" aria-current="page">Mês</button>
+  <button data-tab="hist">Histórico</button>
+  <button data-tab="ajustes">Ajustes</button>
+</div></nav>
+<dialog id="dlg"></dialog>
+
+<script>
+(function(){
+"use strict";
+/* ===== CONFIGURAÇÃO: cole aqui os dados do seu projeto Supabase ===== */
+const SUPABASE_URL = "COLE_AQUI_A_PROJECT_URL";
+const SUPABASE_KEY = "COLE_AQUI_A_CHAVE_PUBLICA_ANON";
+/* ==================================================================== */
+
+const S={sb:null,session:null,status:"loading",config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null};
+const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const fmt=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
+const brl=c=>fmt.format((c||0)/100);
+const pctf=x=>(x*100).toLocaleString("pt-BR",{maximumFractionDigits:1})+"%";
+const mesNome=id=>{const [y,m]=id.split("-").map(Number);return MESES[m-1]+" de "+y};
+const mesCurto=id=>{const [y,m]=id.split("-").map(Number);return MESES[m-1].slice(0,3)+"/"+String(y).slice(2)};
+const nextId=id=>{let [y,m]=id.split("-").map(Number);m++;if(m>12){m=1;y++}return y+"-"+String(m).padStart(2,"0")};
+const hoje=()=>new Date();
+const hojeId=()=>{const d=hoje();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+const hojeISO=()=>{const d=hoje();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const dataBR=iso=>{if(!iso)return"";const [y,m,d]=String(iso).slice(0,10).split("-");return d+"/"+m};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function parseBRL(str){let s=String(str??"").replace(/R\$|\s/g,"");if(!s)return NaN;if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");const n=Number(s);return isFinite(n)?Math.round(n*100):NaN}
+const toInput=c=>((c||0)/100).toFixed(2).replace(".",",");
+const slug=s=>(String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"conta")+"-"+Math.random().toString(36).slice(2,6);
+
+const $=s=>document.querySelector(s);
+const app=$("#app"),dlg=$("#dlg");
+const pessoas=()=>S.config?.moradores||[];
+const nomeDe=id=>pessoas().find(p=>p.id===id)?.nome||id;
+const corDe=id=>"c"+Math.max(0,pessoas().findIndex(p=>p.id===id));
+const varCor=i=>"var(--p"+(i%2)+")";
+const pagsMes=()=>S.todosPags.filter(p=>p.mes===S.mesId);
+
+function regraTxt(c){
+  if(c.regra==="igual")return pessoas().length===2?"meio a meio":"partes iguais";
+  if(c.regra==="proporcional")return "pela renda";
+  return pessoas().map(p=>(c.pct?.[p.id]??0)+"%").join(" / ");
+}
+
+/* ---------- banco de dados ---------- */
+async function q(promessa){const {data,error}=await promessa;if(error)throw error;return data}
+async function carregar(){
+  const sb=S.sb;
+  const [mor,rec,mes,cm,pg]=await Promise.all([
+    q(sb.from("moradores").select("*").order("ordem")),
+    q(sb.from("contas_recorrentes").select("*")),
+    q(sb.from("meses").select("*")),
+    q(sb.from("contas_mes").select("*")),
+    q(sb.from("pagamentos").select("*"))
+  ]);
+  S.config=mor.length?{moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao}))}:null;
+  const m={};mes.forEach(x=>m[x.id]={rendas:x.rendas||{},contas:{}});
+  cm.forEach(x=>{if(m[x.mes_id])m[x.mes_id].contas[x.conta_id]={nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valor:x.valor,estimado:x.estimado}});
+  S.meses=m;
+  S.todosPags=pg.map(x=>({id:x.id,mes:x.mes_id,tipo:x.tipo,contaId:x.conta_id,quem:x.quem,de:x.de,para:x.para,valor:x.valor,data:x.data,obs:x.obs}));
+  const ids=Object.keys(m).sort();
+  if(!S.mesId||!m[S.mesId])S.mesId=m[hojeId()]?hojeId():ids[ids.length-1]||null;
+  S.status="ok";render();
+}
+let recargaT;
+function agendarRecarga(){clearTimeout(recargaT);recargaT=setTimeout(()=>carregar().catch(erro),400)}
+let canal=null;
+function ouvirMudancas(){
+  if(canal)return;
+  canal=S.sb.channel("casa").on("postgres_changes",{event:"*",schema:"public"},agendarRecarga).subscribe();
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.status==="ok")agendarRecarga()});
+
+/* ---------- cálculo ---------- */
+function calc(mes,pags){
+  const ps=pessoas(),rendas=mes.rendas||{};
+  const rendaTotal=ps.reduce((a,p)=>a+(rendas[p.id]||0),0);
+  const devido={},pago={},pagoConta={};
+  ps.forEach(p=>{devido[p.id]=0;pago[p.id]=0});
+  for(const g of pags){
+    if(g.tipo==="conta"){pago[g.quem]=(pago[g.quem]||0)+g.valor;pagoConta[g.contaId]=(pagoConta[g.contaId]||0)+g.valor}
+    else if(g.tipo==="transferencia"){pago[g.de]=(pago[g.de]||0)+g.valor;pago[g.para]=(pago[g.para]||0)-g.valor}
+  }
+  const contas=Object.entries(mes.contas||{}).map(([id,c])=>{
+    const w=ps.map(p=>c.regra==="igual"?1:c.regra==="proporcional"?(rendas[p.id]||0):(Number(c.pct?.[p.id])||0));
+    const sw=w.reduce((a,b)=>a+b,0);
+    const partes={};let acc=0;
+    ps.forEach((p,i)=>{const v=i===ps.length-1?c.valor-acc:(sw?Math.round(c.valor*w[i]/sw):Math.round(c.valor/ps.length));partes[p.id]=v;acc+=v;devido[p.id]+=v});
+    const pc=pagoConta[id]||0;
+    const status=c.valor<=0?"semvalor":pc>=c.valor?"pago":pc>0?"parcial":"pendente";
+    return Object.assign({id},c,{partes,pagoConta:pc,status});
+  }).sort((a,b)=>(a.dia-b.dia)||String(a.nome).localeCompare(b.nome));
+  const total=contas.reduce((a,c)=>a+c.valor,0);
+  const falta=contas.reduce((a,c)=>a+Math.max(0,c.valor-c.pagoConta),0);
+  const saldo={};ps.forEach(p=>saldo[p.id]=pago[p.id]-devido[p.id]);
+  let devedor=null,credor=null;
+  ps.forEach(p=>{if(saldo[p.id]<0&&(!devedor||saldo[p.id]<saldo[devedor]))devedor=p.id;if(saldo[p.id]>0&&(!credor||saldo[p.id]>saldo[credor]))credor=p.id});
+  const acerto=devedor&&credor?Math.min(-saldo[devedor],saldo[credor]):0;
+  return {ps,rendas,rendaTotal,contas,total,falta,devido,pago,saldo,devedor,credor,acerto};
+}
+function prazo(c,mesId){
+  if(c.status==="pago"||c.status==="semvalor")return null;
+  const atual=hojeId();
+  if(mesId<atual)return{cls:"bad",txt:"Atrasada"};
+  if(mesId>atual)return null;
+  const diff=c.dia-hoje().getDate();
+  if(diff<0)return{cls:"bad",txt:"Atrasada"};
+  if(diff===0)return{cls:"warn",txt:"Vence hoje"};
+  if(diff<=3)return{cls:"warn",txt:"Vence em "+diff+(diff===1?" dia":" dias")};
+  return null;
+}
+const STATUS={pago:["ok","Paga"],parcial:["warn","Parcial"],pendente:["","Pendente"],semvalor:["","Sem valor"]};
+
+/* ---------- telas ---------- */
+function render(){
+  const logado=S.status==="ok";
+  $(".tabs").style.display=logado?"":"none";
+  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
+  const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=logado&&S.tab==="mes";
+  $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0||i>=ids.length-1;
+  $("#prev").style.visibility=$("#next").style.visibility=naMes?"visible":"hidden";
+  $("#titulo").textContent=naMes&&S.mesId?mesNome(S.mesId):logado&&S.tab==="hist"?"Histórico":logado&&S.tab==="ajustes"?"Ajustes":"Contas da casa";
+
+  if(S.status==="config"){app.innerHTML=`<div class="estado"><h2>Falta configurar</h2><p>Cole a Project URL e a chave pública do Supabase no início do script deste arquivo.</p></div>`;return}
+  if(S.status==="loading"){app.innerHTML=`<div class="estado">Carregando…</div>`;return}
+  if(S.status==="login"){renderLogin();return}
+  if(S.status==="semacesso"){app.innerHTML=`<div class="estado"><h2>E-mail sem acesso</h2><p>${esc(S.session?.user?.email)} não está na lista de moradores desta casa.</p><button class="btn ghost" data-a="sair">Entrar com outro e-mail</button></div>`;return}
+  if(!S.config){renderInicio();return}
+  if(S.tab==="mes")renderMes();else if(S.tab==="hist")renderHist();else renderAjustes();
+}
+function renderLogin(){
+  if(S.enviado){app.innerHTML=`<div class="estado"><h2>Confira seu e-mail</h2><p>Enviamos um link de acesso para <strong>${esc(S.enviado)}</strong>. Abra o link neste mesmo aparelho e navegador.</p><button class="link" data-a="voltarlogin">Usar outro e-mail</button></div>`;return}
+  app.innerHTML=`<div class="estado"><form class="login" id="fLogin"><h2>Contas da casa</h2><p style="margin:0">Entre com o seu e-mail. Você recebe um link de acesso, sem senha.</p>
+    <label class="campo"><span>E-mail</span><input type="email" name="email" required autocomplete="email"></label>
+    <button class="btn">Receber link de acesso</button></form></div>`;
+  $("#fLogin").addEventListener("submit",async e=>{
+    e.preventDefault();const b=e.target.querySelector("button");b.disabled=true;
+    const email=new FormData(e.target).get("email").trim();
+    try{await q(S.sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}}));S.enviado=email;render()}
+    catch(err){erro(err);b.disabled=false}
+  });
+}
+function renderInicio(){
+  app.innerHTML=`<div class="estado"><h2>Comece pela casa</h2><p>Cadastre os dois moradores. Depois adicione as contas em Ajustes.</p><button class="btn" data-a="inicio">Cadastrar moradores</button></div>`;
+}
+function renderMes(){
+  const ids=Object.keys(S.meses).sort();
+  if(!S.mesId||!S.meses[S.mesId]){
+    app.innerHTML=`<div class="estado"><h2>Nenhum mês aberto</h2><p>Abra o mês para gerar as contas recorrentes.</p><button class="btn" data-a="abrir" data-id="${hojeId()}">Abrir ${mesNome(hojeId())}</button></div>`;return;
+  }
+  const mes=S.meses[S.mesId],pags=pagsMes(),r=calc(mes,pags);
+  let hero;
+  if(r.acerto>0){
+    hero=`<p class="acerto"><span class="${corDe(r.devedor)}">${esc(nomeDe(r.devedor))}</span> transfere <span class="v num">${brl(r.acerto)}</span> para <span class="${corDe(r.credor)}">${esc(nomeDe(r.credor))}</span></p>
+    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em contas.`:"Todas as contas pagas. Só falta este acerto para fechar o mês."}</p>`;
+  }else if(r.falta>0){
+    hero=`<p class="acerto">Faltam <span class="v num">${brl(r.falta)}</span> em contas</p><p class="sub">Ninguém deve nada ao outro até aqui.</p>`;
+  }else if(r.contas.length){
+    hero=`<p class="acerto">Mês fechado. Ninguém deve nada.</p><p class="sub">Contas pagas e acerto feito.</p>`;
+  }else hero=`<p class="acerto">Nenhuma conta neste mês</p>`;
+  const acts=`<div class="hero-acts">
+    ${r.acerto>0?`<button class="btn" data-a="transf" data-de="${r.devedor}" data-para="${r.credor}" data-v="${r.acerto}">Registrar acerto</button>`:""}
+    <button class="btn ${r.acerto>0?"ghost":""}" data-a="pagar">Registrar pagamento</button>
+    ${r.acerto>0?"":`<button class="btn ghost" data-a="transf">Transferência</button>`}</div>`;
+  const pes=r.ps.map((p,i)=>{
+    const dv=r.devido[p.id],pg=r.pago[p.id],rd=r.rendas[p.id]||0;
+    const w=dv>0?Math.min(100,Math.max(0,pg/dv*100)):0,s=r.saldo[p.id];
+    const sit=s>0?`a receber ${brl(s)}`:s<0?`falta ${brl(-s)}`:"em dia";
+    return `<div class="pessoa" style="--c:${varCor(i)}">
+      <div class="pessoa-top"><span class="nome">${esc(p.nome)}</span><span class="parte num">${brl(dv)}</span></div>
+      <div class="barra" role="img" aria-label="${esc(p.nome)} pagou ${Math.round(w)}% da sua parte"><span style="width:${w}%"></span></div>
+      <div class="pessoa-sub num"><span>Pagou ${brl(pg)}, ${sit}</span><span>${rd?pctf(dv/rd)+" da renda":"renda não informada"}</span></div></div>`;
+  }).join("");
+  const rendasTxt=r.ps.map(p=>esc(p.nome)+" "+brl(r.rendas[p.id]||0)).join(", ");
+  const lis=r.contas.map(c=>{
+    const st=STATUS[c.status],pz=prazo(c,S.mesId);
+    return `<li><button class="conta" data-a="conta" data-id="${esc(c.id)}">
+      <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
+      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}</span></span>
+      <span class="dir"><span class="vl num">${brl(c.valor)}</span><span class="chips">
+        ${c.estimado&&c.status!=="pago"?`<span class="chip warn">Estimado</span>`:""}
+        ${pz?`<span class="chip ${pz.cls}">${pz.txt}</span>`:`<span class="chip ${st[0]}">${st[1]}</span>`}
+      </span></span></button></li>`;
+  }).join("");
+  const movs=pags.slice().sort((a,b)=>String(b.data).localeCompare(String(a.data))).map(g=>{
+    const t=g.tipo==="conta"?`${esc(nomeDe(g.quem))} pagou ${esc(mes.contas?.[g.contaId]?.nome||"conta")}`:`${esc(nomeDe(g.de))} transferiu para ${esc(nomeDe(g.para))}`;
+    return `<li class="mov"><span><span class="t">${t}</span><br><span class="d">${dataBR(g.data)}${g.obs?", "+esc(g.obs):""}</span></span><span class="num">${brl(g.valor)}</span>
+      <button class="x" data-a="delpag" data-id="${g.id}" aria-label="Excluir movimento">×</button></li>`;
+  }).join("");
+  const isUlt=S.mesId===ids[ids.length-1],prox=nextId(S.mesId);
+  app.innerHTML=`<div class="hero">${hero}${acts}</div>
+  <div class="balanca">${pes}<div class="rendas"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div>
+  <section><div class="sec-h"><h2>Contas</h2><span class="meta num">${r.rendaTotal?pctf(r.total/r.rendaTotal)+" da renda da casa":""}</span></div>
+    <ul class="lista">${lis||`<li class="vazio">Nenhuma conta neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
+    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button></p></section>
+  <section><div class="sec-h"><h2>Movimentos</h2><span class="meta">${pags.length} ${pags.length===1?"registro":"registros"}</span></div>
+    <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma conta, registre aqui.</li>`}</ul></section>
+  ${isUlt?`<section style="text-align:center"><button class="btn ghost" data-a="abrir" data-id="${prox}">Abrir ${mesNome(prox)}</button>
+    <p class="nota">As contas recorrentes entram com o valor deste mês, marcadas como estimadas até você confirmar.</p></section>`:""}`;
+}
+function renderHist(){
+  const ids=Object.keys(S.meses).sort();
+  if(!ids.length){app.innerHTML=`<div class="estado"><h2>Sem histórico</h2><p>Abra um mês para começar.</p></div>`;return}
+  const tot=ids.map(id=>{const c=Object.values(S.meses[id].contas||{});const t=c.reduce((a,x)=>a+(x.valor||0),0);const rd=Object.values(S.meses[id].rendas||{}).reduce((a,b)=>a+b,0);return{id,t,rd,est:c.some(x=>x.estimado)}});
+  const max=Math.max(1,...tot.map(x=>x.t));
+  const rows=tot.slice().reverse().map(x=>`<li class="hist-row"><span><strong>${MESES[+x.id.slice(5)-1]}</strong> ${x.id.slice(0,4)}${x.est?`<br><span class="chip warn">Tem estimativas</span>`:""}</span>
+    <span class="hbar"><span style="width:${x.t/max*100}%"></span></span>
+    <span class="num" style="text-align:right">${brl(x.t)}<br><small style="color:var(--muted)">${x.rd?pctf(x.t/x.rd)+" da renda":""}</small></span></li>`).join("");
+  const ult=ids.slice(-6),nomes={};
+  ult.forEach(id=>Object.entries(S.meses[id].contas||{}).forEach(([cid,c])=>{nomes[cid]=c.nome}));
+  const linhas=Object.keys(nomes).map(cid=>{
+    const vals=ult.map(id=>S.meses[id].contas?.[cid]);
+    const conf=vals.slice(0,-1).filter(v=>v&&!v.estimado&&v.valor>0).map(v=>v.valor);
+    const last=vals[vals.length-1];let varTd="<td>sem base</td>";
+    if(last&&conf.length&&last.valor>0){const media=conf.reduce((a,b)=>a+b,0)/conf.length;const d=(last.valor-media)/media;varTd=`<td class="${d>0.1?"up":d<-0.1?"down":""}">${d>0?"+":""}${pctf(d)}</td>`}
+    return `<tr><td>${esc(nomes[cid])}</td>${vals.map(v=>`<td class="num">${v?brl(v.valor)+(v.estimado?"*":""):"sem conta"}</td>`).join("")}${varTd}</tr>`;
+  }).join("");
+  app.innerHTML=`<section><div class="sec-h"><h2>Total por mês</h2></div><ul class="lista">${rows}</ul></section>
+  <section><div class="sec-h"><h2>Por conta</h2></div>
+  <div class="tblwrap"><table><thead><tr><th>Conta</th>${ult.map(id=>`<th>${mesCurto(id)}</th>`).join("")}<th>Último x média</th></tr></thead><tbody class="num">${linhas}</tbody></table></div>
+  <p class="nota">* valor estimado. A última coluna compara o mês mais recente com a média dos meses anteriores já confirmados. Vermelho indica alta de mais de 10%.</p></section>
+  <section><div class="card"><p><strong>Exportar dados</strong></p><p>Gera um arquivo CSV com todas as contas e movimentos, que abre no Excel ou no Google Planilhas.</p><button class="btn small" data-a="csv">Baixar CSV</button></div></section>`;
+}
+function renderAjustes(){
+  const ps=pessoas(),cs=(S.config.contas||[]).slice().sort((a,b)=>a.dia-b.dia);
+  app.innerHTML=`<section><div class="sec-h"><h2>Moradores</h2><button class="link" data-a="moradores">Editar nomes</button></div>
+    <div class="card">${ps.map((p,i)=>`<p><strong style="color:${varCor(i)}">${esc(p.nome)}</strong></p>`).join("")}</div></section>
+  <section><div class="sec-h"><h2>Contas recorrentes</h2><button class="link" data-a="tpl">Adicionar</button></div>
+    <ul class="lista">${cs.map(c=>`<li><button class="conta" data-a="tpl" data-id="${esc(c.id)}">
+      <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
+      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}</span></span><span></span></button></li>`).join("")||`<li class="vazio">Nenhuma conta recorrente.</li>`}</ul>
+    <p class="nota">Mudanças aqui valem para os próximos meses abertos. Para mudar um mês que já existe, toque na conta dentro dele.</p></section>
+  <section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}.</p><button class="btn small ghost" data-a="sair">Sair</button></div></section>`;
+}
+
+/* ---------- diálogos ---------- */
+let onSubmit=null;
+function openDlg(title,desc,body,acts,handler){
+  dlg.innerHTML=`<form class="dlg" id="f"><h3>${title}</h3>${desc?`<p class="desc">${desc}</p>`:""}${body}<div class="dlg-act">${acts}</div></form>`;
+  onSubmit=handler;dlg.showModal();
+  const first=dlg.querySelector("input,select");if(first&&window.matchMedia("(hover:hover)").matches)first.focus();
+}
+dlg.addEventListener("submit",async e=>{
+  e.preventDefault();const fd=new FormData(e.target),btn=e.submitter,act=btn?.value||"ok";
+  if(act==="cancel"){dlg.close();return}
+  if(!onSubmit)return;if(btn)btn.disabled=true;
+  try{const r=await onSubmit(fd,act);if(r!==false){dlg.close();await carregar()}}
+  catch(err){erro(err)}finally{if(btn)btn.disabled=false}
+});
+dlg.addEventListener("click",e=>{if(e.target===dlg)dlg.close()});
+const cancelar=`<button class="btn ghost" value="cancel" formnovalidate>Cancelar</button>`;
+const optP=sel=>pessoas().map(p=>`<option value="${esc(p.id)}" ${p.id===sel?"selected":""}>${esc(p.nome)}</option>`).join("");
+const campo=(label,inner)=>`<label class="campo"><span>${label}</span>${inner}</label>`;
+const valInput=(name,c)=>`<input name="${name}" inputmode="decimal" required value="${c!=null?toInput(c):""}" placeholder="0,00">`;
+function needVal(v){if(!(v>0)){toast("Informe um valor maior que zero.");return false}return true}
+
+function dlgPagar(contaId){
+  const mes=S.meses[S.mesId],r=calc(mes,pagsMes());
+  const ordem=r.contas.slice().sort((a,b)=>(a.status==="pago")-(b.status==="pago"));
+  const sel=contaId||ordem.find(c=>c.status!=="pago")?.id||ordem[0]?.id;
+  if(!sel){toast("Adicione uma conta antes.");return}
+  const rest=id=>{const c=r.contas.find(x=>x.id===id);return c?Math.max(0,c.valor-c.pagoConta)||c.valor:0};
+  openDlg("Registrar pagamento","Quem pagou a conta direto ao fornecedor.",
+    campo("Conta",`<select name="conta" id="selConta">${ordem.map(c=>`<option value="${esc(c.id)}" ${c.id===sel?"selected":""}>${esc(c.nome)} (${brl(c.valor)})${c.status==="pago"?", já paga":""}</option>`).join("")}</select>`)+
+    `<div class="duo">${campo("Quem pagou",`<select name="quem">${optP(pessoas()[0]?.id)}</select>`)}${campo("Valor (R$)",valInput("valor",rest(sel)))}</div>`+
+    `<div class="duo">${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}${campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional">`)}</div>`,
+    cancelar+`<button class="btn" value="ok">Registrar</button>`,
+    async fd=>{const v=parseBRL(fd.get("valor"));if(!needVal(v))return false;
+      const cid=fd.get("conta");
+      await q(S.sb.from("pagamentos").insert({mes_id:S.mesId,tipo:"conta",conta_id:cid,quem:fd.get("quem"),valor:v,data:fd.get("data"),obs:fd.get("obs")||""}));
+      if(mes.contas[cid]?.estimado)await q(S.sb.from("contas_mes").update({estimado:false}).eq("mes_id",S.mesId).eq("conta_id",cid));
+      toast("Pagamento registrado.");});
+  $("#selConta").addEventListener("change",e=>{dlg.querySelector("[name=valor]").value=toInput(rest(e.target.value))});
+}
+function dlgTransf(de,para,v){
+  const ps=pessoas();de=de||ps[0]?.id;para=para||ps.find(p=>p.id!==de)?.id;
+  openDlg("Registrar transferência","Dinheiro que um passou para o outro para acertar as contas.",
+    `<div class="duo">${campo("De",`<select name="de">${optP(de)}</select>`)}${campo("Para",`<select name="para">${optP(para)}</select>`)}</div>`+
+    `<div class="duo">${campo("Valor (R$)",valInput("valor",v||null))}${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}</div>`+
+    campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional, ex.: Pix">`),
+    cancelar+`<button class="btn" value="ok">Registrar</button>`,
+    async fd=>{const val=parseBRL(fd.get("valor"));if(!needVal(val))return false;
+      if(fd.get("de")===fd.get("para")){toast("Escolha pessoas diferentes.");return false}
+      await q(S.sb.from("pagamentos").insert({mes_id:S.mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
+      toast("Transferência registrada.");});
+}
+function dlgConta(id){
+  const mes=S.meses[S.mesId],r=calc(mes,pagsMes()),c=r.contas.find(x=>x.id===id);if(!c)return;
+  const pg=pagsMes().filter(g=>g.tipo==="conta"&&g.contaId===id);
+  openDlg(esc(c.nome),`Vence dia ${c.dia}, dividida ${regraTxt(c)}${c.estimado?". Valor ainda estimado":""}.`,
+    `<div class="det num"><div><span>Valor</span><strong>${brl(c.valor)}</strong></div>${r.ps.map(p=>`<div><span>Parte de ${esc(p.nome)}</span><span>${brl(c.partes[p.id])}</span></div>`).join("")}
+     <div><span>Pago até agora</span><span>${brl(c.pagoConta)}</span></div></div>
+     ${pg.length?`<div class="det">${pg.map(g=>`<div><span>${dataBR(g.data)}, ${esc(nomeDe(g.quem))}</span><span class="num">${brl(g.valor)}</span></div>`).join("")}</div>`:""}`,
+    `<button class="btn ghost esq" value="edit">Editar</button><button class="btn ghost" value="cancel" formnovalidate>Fechar</button>${c.status!=="pago"?`<button class="btn" value="pay">Registrar pagamento</button>`:""}`,
+    async(fd,act)=>{dlg.close();if(act==="pay")dlgPagar(id);else if(act==="edit")dlgEditConta(id);return false});
+}
+function formConta(c,valorLabel){
+  const ps=pessoas(),reg=c?.regra||"igual";
+  return `<div class="duo">${campo("Nome",`<input name="nome" required maxlength="40" value="${esc(c?.nome||"")}">`)}${campo("Dia do vencimento",`<input name="dia" type="number" min="1" max="31" required value="${c?.dia||""}">`)}</div>`+
+  campo(valorLabel||"Valor (R$)",`<input name="valor" inputmode="decimal" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00">`)+
+  campo("Divisão",`<select name="regra" id="selRegra"><option value="igual" ${reg==="igual"?"selected":""}>${ps.length===2?"Meio a meio":"Partes iguais"}</option><option value="proporcional" ${reg==="proporcional"?"selected":""}>Proporcional à renda</option><option value="custom" ${reg==="custom"?"selected":""}>Percentual combinado</option></select>`)+
+  `<div class="duo" id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="0.1" value="${c?.pct?.[p.id]??(100/ps.length)}">`)).join("")}</div>`;
+}
+function lerConta(fd){
+  const ps=pessoas(),regra=fd.get("regra");let pct=null;
+  if(regra==="custom"){pct={};let s=0;ps.forEach(p=>{pct[p.id]=Number(fd.get("pct_"+p.id))||0;s+=pct[p.id]});if(Math.abs(s-100)>0.01){toast("Os percentuais precisam somar 100%.");return null}}
+  const dia=Math.min(31,Math.max(1,parseInt(fd.get("dia"))||1));
+  return {nome:String(fd.get("nome")).trim().toLowerCase(),dia,regra,pct};
+}
+function bindRegra(){$("#selRegra").addEventListener("change",e=>{$("#pctBox").hidden=e.target.value!=="custom"})}
+function dlgEditConta(id){
+  const mes=S.meses[S.mesId],c=id?mes.contas[id]:null;
+  openDlg(id?"Editar conta do mês":"Nova conta neste mês",id?"A mudança vale só para "+mesNome(S.mesId)+".":"Para repetir todo mês, cadastre em Ajustes.",
+    formConta(c)+(id&&c.estimado?`<label class="check"><input type="checkbox" name="conf" checked> Valor confirmado pela fatura</label>`:""),
+    (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
+    async(fd,act)=>{
+      if(act==="del"){
+        if(pagsMes().some(g=>g.contaId===id)){toast("Exclua antes os pagamentos desta conta.");return false}
+        if(!confirm("Remover esta conta de "+mesNome(S.mesId)+"?"))return false;
+        await q(S.sb.from("contas_mes").delete().eq("mes_id",S.mesId).eq("conta_id",id));toast("Conta removida.");return;
+      }
+      const base=lerConta(fd);if(!base)return false;
+      const v=parseBRL(fd.get("valor")||"0");if(isNaN(v)||v<0){toast("Valor inválido.");return false}
+      await q(S.sb.from("contas_mes").upsert(Object.assign({mes_id:S.mesId,conta_id:id||slug(base.nome)},base,{valor:v,estimado:id?(c.estimado&&!fd.get("conf")):false})));
+      toast("Conta salva.");
+    });
+  bindRegra();
+}
+function dlgRendas(){
+  const mes=S.meses[S.mesId];
+  openDlg("Rendas de "+mesNome(S.mesId),"Usadas nas contas divididas pela renda. O próximo mês aberto copia estes valores.",
+    pessoas().map(p=>campo(esc(p.nome)+" (R$)",valInput("r_"+p.id,mes.rendas?.[p.id]||0))).join(""),
+    cancelar+`<button class="btn" value="ok">Salvar</button>`,
+    async fd=>{const rendas={};for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
+      await q(S.sb.from("meses").update({rendas}).eq("id",S.mesId));toast("Rendas atualizadas.");});
+}
+function dlgTpl(id){
+  const c=id?S.config.contas.find(x=>x.id===id):null;
+  openDlg(id?"Conta recorrente":"Nova conta recorrente","Entra automaticamente em cada mês novo.",
+    formConta(c?Object.assign({},c,{valor:c.valorPadrao}):null,"Valor padrão (R$), usado só se não houver mês anterior"),
+    (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
+    async(fd,act)=>{
+      if(act==="del"){if(!confirm("Parar de gerar esta conta nos próximos meses?"))return false;await q(S.sb.from("contas_recorrentes").delete().eq("id",id));toast("Conta removida dos próximos meses.");return}
+      const base=lerConta(fd);if(!base)return false;const v=parseBRL(fd.get("valor")||"0");
+      await q(S.sb.from("contas_recorrentes").upsert(Object.assign({id:id||slug(base.nome)},base,{valor_padrao:isNaN(v)?0:v})));
+      toast("Conta recorrente salva.");
+    });
+  bindRegra();
+}
+function dlgMoradores(primeiro){
+  const ps=primeiro?[{id:"p1",nome:""},{id:"p2",nome:""}]:pessoas();
+  openDlg(primeiro?"Quem mora na casa":"Nomes dos moradores","",
+    ps.map((p,i)=>campo("Morador "+(i+1),`<input name="n_${esc(p.id)}" required maxlength="30" value="${esc(p.nome)}">`)).join(""),
+    cancelar+`<button class="btn" value="ok">Salvar</button>`,
+    async fd=>{
+      const linhas=ps.map((p,i)=>{const nome=String(fd.get("n_"+p.id)).trim()||p.nome;return{id:primeiro?(slug(nome).replace(/-[a-z0-9]{4}$/,"")||p.id)+(i?"-"+i:""):p.id,nome,ordem:i}});
+      await q(S.sb.from("moradores").upsert(linhas));toast("Moradores salvos.");
+    });
+}
+
+/* ---------- ações ---------- */
+async function abrirMes(novoId){
+  await carregar();
+  if(!S.meses[novoId]){
+    const ids=Object.keys(S.meses).sort().filter(x=>x<novoId),base=ids.length?S.meses[ids[ids.length-1]]:null;
+    await q(S.sb.from("meses").insert({id:novoId,rendas:base?.rendas||{}}));
+    const linhas=(S.config.contas||[]).map(t=>({mes_id:novoId,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null,valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
+    if(linhas.length)await q(S.sb.from("contas_mes").insert(linhas));
+    toast(mesNome(novoId)+" aberto.");
+  }
+  S.mesId=novoId;await carregar();window.scrollTo(0,0);
+}
+async function delPag(id){
+  if(!confirm("Excluir este movimento?"))return;
+  await q(S.sb.from("pagamentos").delete().eq("id",id));toast("Movimento excluído.");await carregar();
+}
+function exportCSV(){
+  const qt=v=>`"${String(v??"").replace(/"/g,'""')}"`,n=c=>((c||0)/100).toFixed(2).replace(".",",");
+  const L=["tipo;mes;data;conta;pessoa;para;valor;regra;estimado;obs"];
+  for(const id of Object.keys(S.meses).sort()){
+    const m=S.meses[id];
+    for(const c of Object.values(m.contas||{}))L.push(["conta",id,"",qt(c.nome),"","",n(c.valor),qt(regraTxt(c)),c.estimado?"sim":"não",""].join(";"));
+    for(const g of S.todosPags.filter(p=>p.mes===id))L.push([g.tipo==="conta"?"pagamento":"transferencia",id,g.data,qt(g.tipo==="conta"?m.contas?.[g.contaId]?.nome:""),qt(nomeDe(g.tipo==="conta"?g.quem:g.de)),qt(g.para?nomeDe(g.para):""),n(g.valor),"","",qt(g.obs)].join(";"));
+  }
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L.join("\n")],{type:"text/csv;charset=utf-8"}));
+  a.download="contas-da-casa.csv";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-a]");
+  if(b){const a=b.dataset.a;
+    try{
+      if(a==="pagar")dlgPagar();
+      else if(a==="transf")dlgTransf(b.dataset.de,b.dataset.para,b.dataset.v?Number(b.dataset.v):null);
+      else if(a==="conta")dlgConta(b.dataset.id);
+      else if(a==="novaconta")dlgEditConta(null);
+      else if(a==="rendas")dlgRendas();
+      else if(a==="abrir"){b.disabled=true;await abrirMes(b.dataset.id)}
+      else if(a==="delpag")await delPag(b.dataset.id);
+      else if(a==="tpl")dlgTpl(b.dataset.id);
+      else if(a==="moradores")dlgMoradores(false);
+      else if(a==="inicio")dlgMoradores(true);
+      else if(a==="csv")exportCSV();
+      else if(a==="sair"){await S.sb.auth.signOut();location.reload()}
+      else if(a==="voltarlogin"){S.enviado=null;render()}
+    }catch(err){erro(err)}finally{if(a==="abrir")b.disabled=false}
+    return;
+  }
+  const t=e.target.closest(".tabs button");
+  if(t){S.tab=t.dataset.tab;render();window.scrollTo(0,0)}
+});
+$("#prev").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i>0){S.mesId=ids[i-1];render()}};
+$("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<ids.length-1){S.mesId=ids[i+1];render()}};
+
+let toastT;
+function toast(msg){let el=$(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),2800)}
+function erro(err){
+  console.error(err);const m=String(err?.message||"");
+  if(/row-level security|permission denied/i.test(m)){toast("Sem permissão. Confira se seu e-mail está na lista de moradores.");return}
+  if(/rate limit/i.test(m)){toast("Muitos pedidos de link. Aguarde alguns minutos.");return}
+  if(/fetch|network/i.test(m)){toast("Sem conexão. Verifique a internet.");return}
+  toast("Não foi possível concluir: "+m.slice(0,90));
+}
+
+/* ---------- início ---------- */
+async function entrar(session){
+  S.session=session;
+  if(!session){S.status="login";render();return}
+  try{
+    const eu=await q(S.sb.from("membros").select("email"));
+    if(!eu.length){S.status="semacesso";render();return}
+    await carregar();ouvirMudancas();
+  }catch(err){erro(err);S.status="login";render()}
+}
+async function init(){
+  if(!window.supabase||SUPABASE_URL.startsWith("COLE")||SUPABASE_KEY.startsWith("COLE")){S.status="config";render();return}
+  S.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  render();
+  let atual;
+  S.sb.auth.onAuthStateChange((ev,session)=>{
+    const id=session?.user?.id||null;
+    if(id===atual&&ev!=="SIGNED_OUT")return;
+    atual=id;setTimeout(()=>entrar(session),0);
+  });
+}
+init();
+})();
+</script>
+</body>
+</html>
