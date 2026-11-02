@@ -9,6 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -156,6 +157,15 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .login{max-width:380px;margin:0 auto;text-align:left;display:grid;gap:12px}
 .estado h2{font-family:var(--display);color:var(--ink);margin:0 0 8px}
 @media (prefers-reduced-motion:no-preference){ .barra span{transition:width .4s ease} }
+.top .gbar .wrap{height:auto;padding-top:0;padding-bottom:8px;justify-content:center}
+.gbtn{background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:6px 16px;font-weight:700;font-size:14px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gbtn:disabled{cursor:default}
+.glist{display:grid;gap:8px}
+.gopt{width:100%;text-align:left;padding:14px;border-radius:14px;border:1.5px solid var(--line);background:var(--sunk);cursor:pointer;font-weight:700}
+.gopt[aria-current="true"]{border-color:var(--ink);background:var(--surface)}
+.pr{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:12px 14px}
+.pr .em{font-weight:700;word-break:break-all}
+.pr select{margin-top:6px;width:100%;padding:9px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--sunk)}
 </style>
 </head>
 <body>
@@ -163,7 +173,8 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
   <button class="iconbtn" id="prev" aria-label="Mês anterior">‹</button>
   <h1 id="titulo">Contas da casa</h1>
   <button class="iconbtn" id="next" aria-label="Próximo mês">›</button>
-</div></header>
+</div>
+<div class="gbar" id="gbar" hidden><div class="wrap"><button class="gbtn" id="gbtn" type="button"></button></div></div></header>
 <main class="wrap" id="app"><div class="estado">Carregando…</div></main>
 <nav class="tabs" aria-label="Seções"><div class="wrap">
   <button data-tab="mes" aria-current="page">Mês</button>
@@ -175,12 +186,9 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 <script>
 (function(){
 "use strict";
-/* ===== CONFIGURAÇÃO: cole aqui os dados do seu projeto Supabase ===== */
-const SUPABASE_URL = "https://szgppoesfzfayuvnhrzb.supabase.co";
-const SUPABASE_KEY = "sb_publishable_2AUUQmot9iKEzhIGA1AU4A_ZgMTjeaU";
-/* ==================================================================== */
-
-const S={sb:null,session:null,status:"loading",config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null};
+const CFG=window.CONTAS_CONFIG||{};
+const S={sb:null,session:null,admin:false,status:"loading",grupos:[],membros:[],grupoId:null,mesGrupo:null,
+  config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null,seq:0};
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const fmt=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
 const brl=c=>fmt.format((c||0)/100);
@@ -193,17 +201,28 @@ const hojeId=()=>{const d=hoje();return d.getFullYear()+"-"+String(d.getMonth()+
 const hojeISO=()=>{const d=hoje();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
 const dataBR=iso=>{if(!iso)return"";const [y,m,d]=String(iso).slice(0,10).split("-");return d+"/"+m};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const EMAIL=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function parseBRL(str){let s=String(str??"").replace(/R\$|\s/g,"");if(!s)return NaN;if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");const n=Number(s);return isFinite(n)?Math.round(n*100):NaN}
 const toInput=c=>((c||0)/100).toFixed(2).replace(".",",");
 const slug=s=>(String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"conta")+"-"+Math.random().toString(36).slice(2,6);
+const slugSimples=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"casa";
 
 const $=s=>document.querySelector(s);
 const app=$("#app"),dlg=$("#dlg");
+
+/* ---------- atalhos de estado ---------- */
 const pessoas=()=>S.config?.moradores||[];
 const nomeDe=id=>pessoas().find(p=>p.id===id)?.nome||id;
 const corDe=id=>"c"+Math.max(0,pessoas().findIndex(p=>p.id===id));
 const varCor=i=>"var(--p"+(i%2)+")";
 const pagsMes=()=>S.todosPags.filter(p=>p.mes===S.mesId);
+const emailMeu=()=>String(S.session?.user?.email||"").toLowerCase();
+const grupoAtual=()=>S.grupos.find(g=>g.id===S.grupoId)||null;
+const membrosDoGrupo=()=>S.membros.filter(m=>m.grupo_id===S.grupoId);
+const souMembro=()=>membrosDoGrupo().some(m=>m.email===emailMeu());
+const meuMorador=()=>membrosDoGrupo().find(m=>m.email===emailMeu())?.morador_id||null;
+const salvarGrupo=id=>{try{localStorage.setItem("contas.grupo",id||"")}catch(e){}};
+const lerGrupo=()=>{try{return localStorage.getItem("contas.grupo")||null}catch(e){return null}};
 
 function regraTxt(c){
   if(c.regra==="igual")return pessoas().length===2?"meio a meio":"partes iguais";
@@ -214,15 +233,29 @@ function regraTxt(c){
 /* ---------- banco de dados ---------- */
 async function q(promessa){const {data,error}=await promessa;if(error)throw error;return data}
 async function carregar(){
-  const sb=S.sb;
-  const [mor,rec,mes,cm,pg]=await Promise.all([
-    q(sb.from("moradores").select("*").order("ordem")),
-    q(sb.from("contas_recorrentes").select("*")),
-    q(sb.from("meses").select("*")),
-    q(sb.from("contas_mes").select("*")),
-    q(sb.from("pagamentos").select("*"))
+  const sb=S.sb,seq=++S.seq;
+  const [gr,mb]=await Promise.all([
+    q(sb.from("grupos").select("*").order("criado_em")),
+    q(sb.from("grupo_membros").select("*"))
   ]);
-  S.config=mor.length?{moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao}))}:null;
+  if(seq!==S.seq)return;
+  S.grupos=gr;S.membros=mb;
+  if(!S.grupos.some(g=>g.id===S.grupoId)){
+    const salvo=lerGrupo();
+    S.grupoId=S.grupos.some(g=>g.id===salvo)?salvo:(S.grupos[0]?.id||null);
+  }
+  if(S.mesGrupo!==S.grupoId){S.mesId=null;S.mesGrupo=S.grupoId}
+  if(!S.grupoId){S.config=null;S.meses={};S.todosPags=[];S.status="ok";render();return}
+  const gid=S.grupoId;
+  const [mor,rec,mes,cm,pg]=await Promise.all([
+    q(sb.from("moradores").select("*").eq("grupo_id",gid).order("ordem")),
+    q(sb.from("contas_recorrentes").select("*").eq("grupo_id",gid)),
+    q(sb.from("meses").select("*").eq("grupo_id",gid)),
+    q(sb.from("contas_mes").select("*").eq("grupo_id",gid)),
+    q(sb.from("pagamentos").select("*").eq("grupo_id",gid))
+  ]);
+  if(seq!==S.seq)return;
+  S.config={moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao}))};
   const m={};mes.forEach(x=>m[x.id]={rendas:x.rendas||{},contas:{}});
   cm.forEach(x=>{if(m[x.mes_id])m[x.mes_id].contas[x.conta_id]={nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valor:x.valor,estimado:x.estimado}});
   S.meses=m;
@@ -282,20 +315,32 @@ const STATUS={pago:["ok","Paga"],parcial:["warn","Parcial"],pendente:["","Penden
 
 /* ---------- telas ---------- */
 function render(){
-  const logado=S.status==="ok";
-  $(".tabs").style.display=logado?"":"none";
+  const temAcesso=S.status==="ok"&&(S.grupos.length>0||S.admin);
+  const g=grupoAtual();
+  const mostraAbas=temAcesso&&!!g;
+  $(".tabs").style.display=mostraAbas?"":"none";
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
-  const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=logado&&S.tab==="mes";
+  const gbar=$("#gbar");
+  if(mostraAbas){
+    const interativo=S.grupos.length>1||S.admin;
+    gbar.hidden=false;$("#gbtn").textContent=g.nome+(interativo?" ▾":"");$("#gbtn").disabled=!interativo;
+  }else gbar.hidden=true;
+  const membro=mostraAbas&&souMembro()&&pessoas().length>0;
+  const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=mostraAbas&&S.tab==="mes"&&membro;
   $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0||i>=ids.length-1;
   $("#prev").style.visibility=$("#next").style.visibility=naMes?"visible":"hidden";
-  $("#titulo").textContent=naMes&&S.mesId?mesNome(S.mesId):logado&&S.tab==="hist"?"Histórico":logado&&S.tab==="ajustes"?"Ajustes":"Contas da casa";
+  $("#titulo").textContent=naMes&&S.mesId?mesNome(S.mesId):mostraAbas&&S.tab==="hist"?"Histórico":mostraAbas&&S.tab==="ajustes"?"Ajustes":"Contas da casa";
 
-  if(S.status==="config"){app.innerHTML=`<div class="estado"><h2>Falta configurar</h2><p>Cole a Project URL e a chave pública do Supabase no início do script deste arquivo.</p></div>`;return}
+  if(S.status==="config"){app.innerHTML=`<div class="estado"><h2>Falta configurar</h2><p>Crie no repositório um arquivo chamado <strong>config.js</strong> com a Project URL e a chave pública do Supabase.</p></div>`;return}
   if(S.status==="loading"){app.innerHTML=`<div class="estado">Carregando…</div>`;return}
+  if(S.status==="erro"){app.innerHTML=`<div class="estado"><h2>Não foi possível carregar</h2><p>Verifique a internet e tente de novo. Se o problema continuar, o banco pode não ter sido atualizado.</p><button class="btn" data-a="recarregar">Tentar de novo</button></div>`;return}
   if(S.status==="login"){renderLogin();return}
-  if(S.status==="semacesso"){app.innerHTML=`<div class="estado"><h2>E-mail sem acesso</h2><p>${esc(S.session?.user?.email)} não está na lista de moradores desta casa.</p><button class="btn ghost" data-a="sair">Entrar com outro e-mail</button></div>`;return}
-  if(!S.config){renderInicio();return}
-  if(S.tab==="mes")renderMes();else if(S.tab==="hist")renderHist();else renderAjustes();
+  if(!temAcesso){renderSemAcesso();return}
+  if(!g){renderSemGrupo();return}
+  if(S.tab==="ajustes"){renderAjustes();return}
+  if(!souMembro()){renderNaoMembro();return}
+  if(!pessoas().length){renderSemPessoas();return}
+  if(S.tab==="mes")renderMes();else renderHist();
 }
 function renderLogin(){
   if(S.enviado){app.innerHTML=`<div class="estado"><h2>Confira seu e-mail</h2><p>Enviamos um link de acesso para <strong>${esc(S.enviado)}</strong>. Abra o link neste mesmo aparelho e navegador.</p><button class="link" data-a="voltarlogin">Usar outro e-mail</button></div>`;return}
@@ -309,13 +354,26 @@ function renderLogin(){
     catch(err){erro(err);b.disabled=false}
   });
 }
-function renderInicio(){
-  app.innerHTML=`<div class="estado"><h2>Comece pela casa</h2><p>Cadastre os dois moradores. Depois adicione as contas em Ajustes.</p><button class="btn" data-a="inicio">Cadastrar moradores</button></div>`;
+function renderSemAcesso(){
+  app.innerHTML=`<div class="estado"><h2>E-mail sem acesso</h2><p>${esc(emailMeu())} ainda não foi adicionado a nenhum grupo. Peça ao administrador para incluir este e-mail e toque em verificar.</p>
+  <div class="hero-acts" style="justify-content:center"><button class="btn" data-a="recarregar">Verificar de novo</button><button class="btn ghost" data-a="sair">Entrar com outro e-mail</button></div></div>`;
 }
+function renderSemGrupo(){
+  app.innerHTML=`<div class="estado"><h2>Nenhum grupo ainda</h2><p>Crie o primeiro grupo de divisão de contas.</p><button class="btn" data-a="novogrupo">Criar grupo</button>
+  <p style="margin-top:18px"><button class="link" data-a="sair">Sair</button></p></div>`;
+}
+function renderNaoMembro(){
+  app.innerHTML=`<div class="estado"><h2>Você administra este grupo</h2><p>Seu e-mail não está entre as pessoas dele, por isso os valores ficam ocultos para você. Se quiser participar, adicione-se em Ajustes.</p><button class="btn" data-a="irajustes">Abrir ajustes</button></div>`;
+}
+function renderSemPessoas(){
+  app.innerHTML=`<div class="estado"><h2>Grupo sem pessoas</h2><p>${S.admin?"Adicione as pessoas que dividem as contas em Ajustes.":"Peça ao administrador para adicionar as pessoas deste grupo."}</p>${S.admin?`<button class="btn" data-a="irajustes">Abrir ajustes</button>`:""}</div>`;
+}
+
 function renderMes(){
   const ids=Object.keys(S.meses).sort();
   if(!S.mesId||!S.meses[S.mesId]){
-    app.innerHTML=`<div class="estado"><h2>Nenhum mês aberto</h2><p>Abra o mês para gerar as contas recorrentes.</p><button class="btn" data-a="abrir" data-id="${hojeId()}">Abrir ${mesNome(hojeId())}</button></div>`;return;
+    const dica=(S.config.contas||[]).length?"":`<p class="nota">Este grupo ainda não tem contas recorrentes. Cadastre em Ajustes antes de abrir o mês.</p>`;
+    app.innerHTML=`<div class="estado"><h2>Nenhum mês aberto</h2><p>Abra o mês para gerar as contas recorrentes.</p><button class="btn" data-a="abrir" data-id="${hojeId()}">Abrir ${mesNome(hojeId())}</button>${dica}</div>`;return;
   }
   const mes=S.meses[S.mesId],pags=pagsMes(),r=calc(mes,pags);
   let hero;
@@ -328,7 +386,7 @@ function renderMes(){
     hero=`<p class="acerto">Mês fechado. Ninguém deve nada.</p><p class="sub">Contas pagas e acerto feito.</p>`;
   }else hero=`<p class="acerto">Nenhuma conta neste mês</p>`;
   const acts=`<div class="hero-acts">
-    ${r.acerto>0?`<button class="btn" data-a="transf" data-de="${r.devedor}" data-para="${r.credor}" data-v="${r.acerto}">Registrar acerto</button>`:""}
+    ${r.acerto>0?`<button class="btn" data-a="transf" data-de="${esc(r.devedor)}" data-para="${esc(r.credor)}" data-v="${r.acerto}">Registrar acerto</button>`:""}
     <button class="btn ${r.acerto>0?"ghost":""}" data-a="pagar">Registrar pagamento</button>
     ${r.acerto>0?"":`<button class="btn ghost" data-a="transf">Transferência</button>`}</div>`;
   const pes=r.ps.map((p,i)=>{
@@ -354,12 +412,12 @@ function renderMes(){
   const movs=pags.slice().sort((a,b)=>String(b.data).localeCompare(String(a.data))).map(g=>{
     const t=g.tipo==="conta"?`${esc(nomeDe(g.quem))} pagou ${esc(mes.contas?.[g.contaId]?.nome||"conta")}`:`${esc(nomeDe(g.de))} transferiu para ${esc(nomeDe(g.para))}`;
     return `<li class="mov"><span><span class="t">${t}</span><br><span class="d">${dataBR(g.data)}${g.obs?", "+esc(g.obs):""}</span></span><span class="num">${brl(g.valor)}</span>
-      <button class="x" data-a="delpag" data-id="${g.id}" aria-label="Excluir movimento">×</button></li>`;
+      <button class="x" data-a="delpag" data-id="${esc(g.id)}" aria-label="Excluir movimento">×</button></li>`;
   }).join("");
   const isUlt=S.mesId===ids[ids.length-1],prox=nextId(S.mesId);
   app.innerHTML=`<div class="hero">${hero}${acts}</div>
   <div class="balanca">${pes}<div class="rendas"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div>
-  <section><div class="sec-h"><h2>Contas</h2><span class="meta num">${r.rendaTotal?pctf(r.total/r.rendaTotal)+" da renda da casa":""}</span></div>
+  <section><div class="sec-h"><h2>Contas</h2><span class="meta num">${r.rendaTotal?pctf(r.total/r.rendaTotal)+" da renda do grupo":""}</span></div>
     <ul class="lista">${lis||`<li class="vazio">Nenhuma conta neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
     <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button></p></section>
   <section><div class="sec-h"><h2>Movimentos</h2><span class="meta">${pags.length} ${pags.length===1?"registro":"registros"}</span></div>
@@ -391,15 +449,30 @@ function renderHist(){
   <section><div class="card"><p><strong>Exportar dados</strong></p><p>Gera um arquivo CSV com todas as contas e movimentos, que abre no Excel ou no Google Planilhas.</p><button class="btn small" data-a="csv">Baixar CSV</button></div></section>`;
 }
 function renderAjustes(){
-  const ps=pessoas(),cs=(S.config.contas||[]).slice().sort((a,b)=>a.dia-b.dia);
-  app.innerHTML=`<section><div class="sec-h"><h2>Moradores</h2><button class="link" data-a="moradores">Editar nomes</button></div>
-    <div class="card">${ps.map((p,i)=>`<p><strong style="color:${varCor(i)}">${esc(p.nome)}</strong></p>`).join("")}</div></section>
-  <section><div class="sec-h"><h2>Contas recorrentes</h2><button class="link" data-a="tpl">Adicionar</button></div>
+  const g=grupoAtual(),ps=pessoas(),cs=(S.config?.contas||[]).slice().sort((a,b)=>a.dia-b.dia),membro=souMembro();
+  let h="";
+  h+=`<section><div class="sec-h"><h2>Pessoas</h2>${ps.length?`<button class="link" data-a="moradores">Editar nomes</button>`:""}</div>
+    <div class="card">${ps.map((p,i)=>`<p><strong style="color:${varCor(i)}">${esc(p.nome)}</strong></p>`).join("")||`<p>Nenhuma pessoa cadastrada.</p>`}</div></section>`;
+  if(membro){
+    h+=`<section><div class="sec-h"><h2>Contas recorrentes</h2><button class="link" data-a="tpl">Adicionar</button></div>
     <ul class="lista">${cs.map(c=>`<li><button class="conta" data-a="tpl" data-id="${esc(c.id)}">
       <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
-      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}</span></span><span></span></button></li>`).join("")||`<li class="vazio">Nenhuma conta recorrente.</li>`}</ul>
-    <p class="nota">Mudanças aqui valem para os próximos meses abertos. Para mudar um mês que já existe, toque na conta dentro dele.</p></section>
-  <section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}.</p><button class="btn small ghost" data-a="sair">Sair</button></div></section>`;
+      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}</span></span><span></span></button></li>`).join("")||`<li class="vazio">Nenhuma conta recorrente. Adicione aluguel, luz e as demais contas fixas.</li>`}</ul>
+    <p class="nota">Mudanças aqui valem para os próximos meses abertos. Para mudar um mês que já existe, toque na conta dentro dele.</p></section>`;
+  }
+  if(S.admin){
+    const ms=membrosDoGrupo().slice().sort((a,b)=>a.email.localeCompare(b.email));
+    h+=`<section><div class="sec-h"><h2>Pessoas e acessos</h2><button class="link" data-a="addpessoa">Adicionar pessoa</button></div>
+    <ul class="lista">${ms.map(m=>`<li class="pr"><div><span class="em">${esc(m.email)}</span>
+      <select data-vinculo="${esc(m.email)}" aria-label="Pessoa da divisão para ${esc(m.email)}"><option value="">Sem vínculo com a divisão</option>${ps.map(p=>`<option value="${esc(p.id)}" ${p.id===m.morador_id?"selected":""}>${esc(p.nome)}</option>`).join("")}</select></div>
+      <button class="x" data-a="rmmembro" data-email="${esc(m.email)}" aria-label="Remover acesso de ${esc(m.email)}">×</button></li>`).join("")||`<li class="vazio">Ninguém tem acesso a este grupo.</li>`}</ul>
+    <p class="nota">Cada e-mail entra no app pelo link de acesso e passa a ver este grupo. O vínculo indica quem é essa pessoa na divisão das contas.</p></section>
+    <section><div class="sec-h"><h2>Este grupo</h2></div><div class="card">
+      <p><strong>${esc(g.nome)}</strong></p>
+      <div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="renomear">Renomear</button><button class="btn small ghost" data-a="novogrupo">Novo grupo</button><button class="btn small danger" data-a="excluirgrupo">Excluir grupo</button></div></div></section>`;
+  }
+  h+=`<section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}${S.admin?", administrador":""}.</p><button class="btn small ghost" data-a="sair">Sair</button></div></section>`;
+  app.innerHTML=h;
 }
 
 /* ---------- diálogos ---------- */
@@ -422,6 +495,80 @@ const optP=sel=>pessoas().map(p=>`<option value="${esc(p.id)}" ${p.id===sel?"sel
 const campo=(label,inner)=>`<label class="campo"><span>${label}</span>${inner}</label>`;
 const valInput=(name,c)=>`<input name="${name}" inputmode="decimal" required value="${c!=null?toInput(c):""}" placeholder="0,00">`;
 function needVal(v){if(!(v>0)){toast("Informe um valor maior que zero.");return false}return true}
+const gid=()=>S.grupoId;
+
+function dlgGrupos(){
+  openDlg("Seus grupos","Toque em um grupo para abrir.",
+    `<div class="glist">${S.grupos.map(g=>`<button class="gopt" value="g:${esc(g.id)}" formnovalidate aria-current="${g.id===S.grupoId}">${esc(g.nome)}</button>`).join("")}</div>`,
+    (S.admin?`<button class="btn esq" value="novo" formnovalidate>Novo grupo</button>`:"")+`<button class="btn ghost" value="cancel" formnovalidate>Fechar</button>`,
+    async(fd,act)=>{
+      if(act==="novo"){dlg.close();dlgNovoGrupo();return false}
+      if(act.startsWith("g:")){S.grupoId=act.slice(2);salvarGrupo(S.grupoId);S.tab="mes";return}
+      return false;
+    });
+}
+function dlgNovoGrupo(){
+  if(!S.admin)return;
+  const bloco=(n,email)=>`<div class="duo">${campo("Pessoa "+n+": nome",`<input name="n${n}" required maxlength="30">`)}${campo("Pessoa "+n+": e-mail",`<input name="e${n}" type="email" required value="${esc(email)}" autocomplete="off">`)}</div>`;
+  openDlg("Novo grupo","Cada grupo tem as próprias contas, pessoas e acessos. Você pode adicionar mais pessoas depois, em Ajustes.",
+    campo("Nome do grupo",`<input name="nome" required maxlength="40" placeholder="Ex.: Apartamento Centro">`)+bloco(1,emailMeu())+bloco(2,""),
+    cancelar+`<button class="btn" value="ok">Criar grupo</button>`,
+    async fd=>{
+      const nome=String(fd.get("nome")).trim();
+      const pe=[1,2].map(n=>({nome:String(fd.get("n"+n)).trim(),email:String(fd.get("e"+n)).trim().toLowerCase()}));
+      if(!nome||!pe.every(p=>p.nome&&EMAIL.test(p.email))){toast("Preencha o nome do grupo e, para as duas pessoas, nome e e-mail válidos.");return false}
+      if(pe[0].email===pe[1].email){toast("Os e-mails das duas pessoas precisam ser diferentes.");return false}
+      const g=await q(S.sb.from("grupos").insert({nome}).select().single());
+      try{
+        const mor=pe.map((p,i)=>({grupo_id:g.id,id:slug(p.nome),nome:p.nome,ordem:i}));
+        await q(S.sb.from("moradores").insert(mor));
+        await q(S.sb.from("grupo_membros").insert(pe.map((p,i)=>({grupo_id:g.id,email:p.email,morador_id:mor[i].id}))));
+      }catch(err){await S.sb.from("grupos").delete().eq("id",g.id);throw err}
+      S.grupoId=g.id;salvarGrupo(g.id);S.tab="ajustes";toast("Grupo criado. Cadastre as contas recorrentes.");
+    });
+}
+function dlgRenomear(){
+  openDlg("Renomear grupo","",campo("Nome do grupo",`<input name="nome" required maxlength="40" value="${esc(grupoAtual().nome)}">`),
+    cancelar+`<button class="btn" value="ok">Salvar</button>`,
+    async fd=>{const nome=String(fd.get("nome")).trim();if(!nome)return false;
+      await q(S.sb.from("grupos").update({nome}).eq("id",gid()));toast("Nome atualizado.");});
+}
+function dlgExcluirGrupo(){
+  const g=grupoAtual();
+  openDlg("Excluir grupo","Isto apaga o grupo, as contas, os pagamentos e os acessos. Não dá para desfazer.",
+    campo("Para confirmar, digite o nome do grupo: <strong>"+esc(g.nome)+"</strong>",`<input name="conf" required autocomplete="off">`),
+    cancelar+`<button class="btn danger" value="ok">Excluir grupo</button>`,
+    async fd=>{
+      if(String(fd.get("conf")).trim().toLowerCase()!==g.nome.trim().toLowerCase()){toast("O nome digitado não confere.");return false}
+      await q(S.sb.from("grupos").delete().eq("id",g.id));
+      S.grupoId=null;salvarGrupo(null);S.tab="mes";toast("Grupo excluído.");
+    });
+}
+function dlgAddPessoa(){
+  openDlg("Adicionar pessoa","A pessoa entra no app com este e-mail, por link de acesso, e passa a ver o grupo. Atenção: ela também passa a dividir os meses já abertos. Em grupos com histórico, prefira adicionar antes de lançar contas.",
+    campo("Nome",`<input name="nome" required maxlength="30">`)+campo("E-mail",`<input name="email" type="email" required autocomplete="off">`)+
+    `<p class="nota" style="margin:0">Endereço do app para enviar à pessoa: <strong style="word-break:break-all">${esc(location.origin+location.pathname)}</strong></p>`,
+    cancelar+`<button class="btn" value="ok">Adicionar</button>`,
+    async fd=>{
+      const nome=String(fd.get("nome")).trim(),email=String(fd.get("email")).trim().toLowerCase();
+      if(!nome||!EMAIL.test(email)){toast("Informe um nome e um e-mail válido.");return false}
+      if(membrosDoGrupo().some(m=>m.email===email)){toast("Este e-mail já tem acesso ao grupo.");return false}
+      const id=slug(nome);
+      await q(S.sb.from("moradores").insert({grupo_id:gid(),id,nome,ordem:pessoas().length}));
+      try{await q(S.sb.from("grupo_membros").insert({grupo_id:gid(),email,morador_id:id}))}
+      catch(err){await S.sb.from("moradores").delete().eq("grupo_id",gid()).eq("id",id);throw err}
+      toast("Pessoa adicionada.");
+    });
+}
+async function removerAcesso(email){
+  if(!confirm("Remover o acesso de "+email+" a este grupo? As contas e pagamentos continuam no grupo."))return;
+  await q(S.sb.from("grupo_membros").delete().eq("grupo_id",gid()).eq("email",email));
+  toast("Acesso removido.");await carregar();
+}
+async function vincular(email,moradorId){
+  await q(S.sb.from("grupo_membros").update({morador_id:moradorId||null}).eq("grupo_id",gid()).eq("email",email));
+  toast("Vínculo atualizado.");await carregar();
+}
 
 function dlgPagar(contaId){
   const mes=S.meses[S.mesId],r=calc(mes,pagsMes());
@@ -431,18 +578,18 @@ function dlgPagar(contaId){
   const rest=id=>{const c=r.contas.find(x=>x.id===id);return c?Math.max(0,c.valor-c.pagoConta)||c.valor:0};
   openDlg("Registrar pagamento","Quem pagou a conta direto ao fornecedor.",
     campo("Conta",`<select name="conta" id="selConta">${ordem.map(c=>`<option value="${esc(c.id)}" ${c.id===sel?"selected":""}>${esc(c.nome)} (${brl(c.valor)})${c.status==="pago"?", já paga":""}</option>`).join("")}</select>`)+
-    `<div class="duo">${campo("Quem pagou",`<select name="quem">${optP(pessoas()[0]?.id)}</select>`)}${campo("Valor (R$)",valInput("valor",rest(sel)))}</div>`+
+    `<div class="duo">${campo("Quem pagou",`<select name="quem">${optP(meuMorador()||pessoas()[0]?.id)}</select>`)}${campo("Valor (R$)",valInput("valor",rest(sel)))}</div>`+
     `<div class="duo">${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}${campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional">`)}</div>`,
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
     async fd=>{const v=parseBRL(fd.get("valor"));if(!needVal(v))return false;
       const cid=fd.get("conta");
-      await q(S.sb.from("pagamentos").insert({mes_id:S.mesId,tipo:"conta",conta_id:cid,quem:fd.get("quem"),valor:v,data:fd.get("data"),obs:fd.get("obs")||""}));
-      if(mes.contas[cid]?.estimado)await q(S.sb.from("contas_mes").update({estimado:false}).eq("mes_id",S.mesId).eq("conta_id",cid));
+      await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:S.mesId,tipo:"conta",conta_id:cid,quem:fd.get("quem"),valor:v,data:fd.get("data"),obs:fd.get("obs")||""}));
+      if(mes.contas[cid]?.estimado)await q(S.sb.from("contas_mes").update({estimado:false}).eq("grupo_id",gid()).eq("mes_id",S.mesId).eq("conta_id",cid));
       toast("Pagamento registrado.");});
   $("#selConta").addEventListener("change",e=>{dlg.querySelector("[name=valor]").value=toInput(rest(e.target.value))});
 }
 function dlgTransf(de,para,v){
-  const ps=pessoas();de=de||ps[0]?.id;para=para||ps.find(p=>p.id!==de)?.id;
+  const ps=pessoas();de=de||meuMorador()||ps[0]?.id;para=para||ps.find(p=>p.id!==de)?.id;
   openDlg("Registrar transferência","Dinheiro que um passou para o outro para acertar as contas.",
     `<div class="duo">${campo("De",`<select name="de">${optP(de)}</select>`)}${campo("Para",`<select name="para">${optP(para)}</select>`)}</div>`+
     `<div class="duo">${campo("Valor (R$)",valInput("valor",v||null))}${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}</div>`+
@@ -450,7 +597,7 @@ function dlgTransf(de,para,v){
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
     async fd=>{const val=parseBRL(fd.get("valor"));if(!needVal(val))return false;
       if(fd.get("de")===fd.get("para")){toast("Escolha pessoas diferentes.");return false}
-      await q(S.sb.from("pagamentos").insert({mes_id:S.mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
+      await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:S.mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
 }
 function dlgConta(id){
@@ -486,11 +633,11 @@ function dlgEditConta(id){
       if(act==="del"){
         if(pagsMes().some(g=>g.contaId===id)){toast("Exclua antes os pagamentos desta conta.");return false}
         if(!confirm("Remover esta conta de "+mesNome(S.mesId)+"?"))return false;
-        await q(S.sb.from("contas_mes").delete().eq("mes_id",S.mesId).eq("conta_id",id));toast("Conta removida.");return;
+        await q(S.sb.from("contas_mes").delete().eq("grupo_id",gid()).eq("mes_id",S.mesId).eq("conta_id",id));toast("Conta removida.");return;
       }
       const base=lerConta(fd);if(!base)return false;
       const v=parseBRL(fd.get("valor")||"0");if(isNaN(v)||v<0){toast("Valor inválido.");return false}
-      await q(S.sb.from("contas_mes").upsert(Object.assign({mes_id:S.mesId,conta_id:id||slug(base.nome)},base,{valor:v,estimado:id?(c.estimado&&!fd.get("conf")):false})));
+      await q(S.sb.from("contas_mes").upsert(Object.assign({grupo_id:gid(),mes_id:S.mesId,conta_id:id||slug(base.nome)},base,{valor:v,estimado:id?(c.estimado&&!fd.get("conf")):false})));
       toast("Conta salva.");
     });
   bindRegra();
@@ -501,7 +648,7 @@ function dlgRendas(){
     pessoas().map(p=>campo(esc(p.nome)+" (R$)",valInput("r_"+p.id,mes.rendas?.[p.id]||0))).join(""),
     cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async fd=>{const rendas={};for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
-      await q(S.sb.from("meses").update({rendas}).eq("id",S.mesId));toast("Rendas atualizadas.");});
+      await q(S.sb.from("meses").update({rendas}).eq("grupo_id",gid()).eq("id",S.mesId));toast("Rendas atualizadas.");});
 }
 function dlgTpl(id){
   const c=id?S.config.contas.find(x=>x.id===id):null;
@@ -509,21 +656,21 @@ function dlgTpl(id){
     formConta(c?Object.assign({},c,{valor:c.valorPadrao}):null,"Valor padrão (R$), usado só se não houver mês anterior"),
     (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async(fd,act)=>{
-      if(act==="del"){if(!confirm("Parar de gerar esta conta nos próximos meses?"))return false;await q(S.sb.from("contas_recorrentes").delete().eq("id",id));toast("Conta removida dos próximos meses.");return}
+      if(act==="del"){if(!confirm("Parar de gerar esta conta nos próximos meses?"))return false;await q(S.sb.from("contas_recorrentes").delete().eq("grupo_id",gid()).eq("id",id));toast("Conta removida dos próximos meses.");return}
       const base=lerConta(fd);if(!base)return false;const v=parseBRL(fd.get("valor")||"0");
-      await q(S.sb.from("contas_recorrentes").upsert(Object.assign({id:id||slug(base.nome)},base,{valor_padrao:isNaN(v)?0:v})));
+      await q(S.sb.from("contas_recorrentes").upsert(Object.assign({grupo_id:gid(),id:id||slug(base.nome)},base,{valor_padrao:isNaN(v)?0:v})));
       toast("Conta recorrente salva.");
     });
   bindRegra();
 }
-function dlgMoradores(primeiro){
-  const ps=primeiro?[{id:"p1",nome:""},{id:"p2",nome:""}]:pessoas();
-  openDlg(primeiro?"Quem mora na casa":"Nomes dos moradores","",
-    ps.map((p,i)=>campo("Morador "+(i+1),`<input name="n_${esc(p.id)}" required maxlength="30" value="${esc(p.nome)}">`)).join(""),
+function dlgMoradores(){
+  const ps=pessoas();
+  openDlg("Nomes das pessoas","",
+    ps.map((p,i)=>campo("Pessoa "+(i+1),`<input name="n_${esc(p.id)}" required maxlength="30" value="${esc(p.nome)}">`)).join(""),
     cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async fd=>{
-      const linhas=ps.map((p,i)=>{const nome=String(fd.get("n_"+p.id)).trim()||p.nome;return{id:primeiro?(slug(nome).replace(/-[a-z0-9]{4}$/,"")||p.id)+(i?"-"+i:""):p.id,nome,ordem:i}});
-      await q(S.sb.from("moradores").upsert(linhas));toast("Moradores salvos.");
+      const linhas=ps.map((p,i)=>({grupo_id:gid(),id:p.id,nome:String(fd.get("n_"+p.id)).trim()||p.nome,ordem:i}));
+      await q(S.sb.from("moradores").upsert(linhas));toast("Nomes atualizados.");
     });
 }
 
@@ -532,8 +679,8 @@ async function abrirMes(novoId){
   await carregar();
   if(!S.meses[novoId]){
     const ids=Object.keys(S.meses).sort().filter(x=>x<novoId),base=ids.length?S.meses[ids[ids.length-1]]:null;
-    await q(S.sb.from("meses").insert({id:novoId,rendas:base?.rendas||{}}));
-    const linhas=(S.config.contas||[]).map(t=>({mes_id:novoId,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null,valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
+    await q(S.sb.from("meses").insert({grupo_id:gid(),id:novoId,rendas:base?.rendas||{}}));
+    const linhas=(S.config.contas||[]).map(t=>({grupo_id:gid(),mes_id:novoId,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null,valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
     if(linhas.length)await q(S.sb.from("contas_mes").insert(linhas));
     toast(mesNome(novoId)+" aberto.");
   }
@@ -541,7 +688,7 @@ async function abrirMes(novoId){
 }
 async function delPag(id){
   if(!confirm("Excluir este movimento?"))return;
-  await q(S.sb.from("pagamentos").delete().eq("id",id));toast("Movimento excluído.");await carregar();
+  await q(S.sb.from("pagamentos").delete().eq("grupo_id",gid()).eq("id",id));toast("Movimento excluído.");await carregar();
 }
 function exportCSV(){
   const qt=v=>`"${String(v??"").replace(/"/g,'""')}"`,n=c=>((c||0)/100).toFixed(2).replace(".",",");
@@ -552,7 +699,7 @@ function exportCSV(){
     for(const g of S.todosPags.filter(p=>p.mes===id))L.push([g.tipo==="conta"?"pagamento":"transferencia",id,g.data,qt(g.tipo==="conta"?m.contas?.[g.contaId]?.nome:""),qt(nomeDe(g.tipo==="conta"?g.quem:g.de)),qt(g.para?nomeDe(g.para):""),n(g.valor),"","",qt(g.obs)].join(";"));
   }
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L.join("\n")],{type:"text/csv;charset=utf-8"}));
-  a.download="contas-da-casa.csv";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  a.download="contas-"+slugSimples(grupoAtual()?.nome||"casa")+".csv";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
 }
 
 document.addEventListener("click",async e=>{
@@ -567,26 +714,38 @@ document.addEventListener("click",async e=>{
       else if(a==="abrir"){b.disabled=true;await abrirMes(b.dataset.id)}
       else if(a==="delpag")await delPag(b.dataset.id);
       else if(a==="tpl")dlgTpl(b.dataset.id);
-      else if(a==="moradores")dlgMoradores(false);
-      else if(a==="inicio")dlgMoradores(true);
+      else if(a==="moradores")dlgMoradores();
       else if(a==="csv")exportCSV();
+      else if(a==="novogrupo")dlgNovoGrupo();
+      else if(a==="renomear")dlgRenomear();
+      else if(a==="excluirgrupo")dlgExcluirGrupo();
+      else if(a==="addpessoa")dlgAddPessoa();
+      else if(a==="rmmembro")await removerAcesso(b.dataset.email);
+      else if(a==="irajustes"){S.tab="ajustes";render();window.scrollTo(0,0)}
+      else if(a==="recarregar"){S.status="loading";render();await entrar(S.session)}
       else if(a==="sair"){await S.sb.auth.signOut();location.reload()}
       else if(a==="voltarlogin"){S.enviado=null;render()}
-    }catch(err){erro(err)}finally{if(a==="abrir")b.disabled=false}
+    }catch(err){erro(err)}finally{if(a==="abrir"&&b.isConnected)b.disabled=false}
     return;
   }
   const t=e.target.closest(".tabs button");
   if(t){S.tab=t.dataset.tab;render();window.scrollTo(0,0)}
 });
+document.addEventListener("change",async e=>{
+  const s=e.target.closest("select[data-vinculo]");
+  if(s){try{await vincular(s.dataset.vinculo,s.value)}catch(err){erro(err)}}
+});
+$("#gbtn").onclick=()=>dlgGrupos();
 $("#prev").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i>0){S.mesId=ids[i-1];render()}};
 $("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<ids.length-1){S.mesId=ids[i+1];render()}};
 
 let toastT;
-function toast(msg){let el=$(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),2800)}
+function toast(msg){let el=$(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),3200)}
 function erro(err){
   console.error(err);const m=String(err?.message||"");
-  if(/row-level security|permission denied/i.test(m)){toast("Sem permissão. Confira se seu e-mail está na lista de moradores.");return}
+  if(/row-level security|permission denied/i.test(m)){toast("Sem permissão para esta ação.");return}
   if(/rate limit/i.test(m)){toast("Muitos pedidos de link. Aguarde alguns minutos.");return}
+  if(/duplicate key/i.test(m)){toast("Já existe um registro igual.");return}
   if(/fetch|network/i.test(m)){toast("Sem conexão. Verifique a internet.");return}
   toast("Não foi possível concluir: "+m.slice(0,90));
 }
@@ -596,14 +755,16 @@ async function entrar(session){
   S.session=session;
   if(!session){S.status="login";render();return}
   try{
-    const eu=await q(S.sb.from("membros").select("email"));
-    if(!eu.length){S.status="semacesso";render();return}
-    await carregar();ouvirMudancas();
-  }catch(err){erro(err);S.status="login";render()}
+    const adm=await q(S.sb.from("admins").select("email"));
+    S.admin=adm.length>0;
+    await carregar();
+    ouvirMudancas();
+  }catch(err){erro(err);S.status="erro";render()}
 }
 async function init(){
-  if(!window.supabase||SUPABASE_URL.startsWith("COLE")||SUPABASE_KEY.startsWith("COLE")){S.status="config";render();return}
-  S.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  const incompleto=!CFG.url||!CFG.key||/COLE/i.test(String(CFG.url)+String(CFG.key));
+  if(!window.supabase||incompleto){S.status="config";render();return}
+  S.sb=window.supabase.createClient(CFG.url,CFG.key);
   render();
   let atual;
   S.sb.auth.onAuthStateChange((ev,session)=>{
