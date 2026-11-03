@@ -174,6 +174,9 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .pend[open] summary::after{content:"\25B4"}
 .pend .pt{display:block;font-weight:700;color:var(--warn)}
 .pend .ps{display:block;color:var(--ink)}
+.pend .nb{white-space:nowrap}
+.pend li button>.num{flex:none;white-space:nowrap;font-weight:700}
+.pend li button>span:first-child{min-width:0;overflow-wrap:anywhere}
 .pend ul{list-style:none;margin:0;padding:0 6px 6px}
 .pend li button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 8px;background:none;border:0;border-top:1px solid var(--warn);border-radius:0;cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
 .pend li button:hover{background:var(--surface)}
@@ -352,7 +355,7 @@ function render(){
   }else gbar.hidden=true;
   const membro=mostraAbas&&souMembro()&&pessoas().length>0;
   const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=mostraAbas&&S.tab==="mes"&&membro;
-  $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0||i>=ids.length-1;
+  $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0;
   $("#prev").style.visibility=$("#next").style.visibility=naMes?"visible":"hidden";
   $("#titulo").textContent=naMes&&S.mesId?mesNome(S.mesId):mostraAbas&&S.tab==="hist"?"Histórico":mostraAbas&&S.tab==="ajustes"?"Ajustes":"Contas da casa";
 
@@ -408,8 +411,8 @@ function pendenciasAnteriores(){
 function htmlPendencias(){
   const p=pendenciasAnteriores();if(!p)return "";
   const partes=[];
-  if(p.contas.length)partes.push(p.contas.length+(p.contas.length===1?" conta":" contas")+" ("+brl(p.total)+")");
-  if(p.acerto)partes.push("acerto de "+brl(p.acerto.valor));
+  if(p.contas.length)partes.push(`<span class="nb">${p.contas.length+(p.contas.length===1?" conta":" contas")} (${brl(p.total)})</span>`);
+  if(p.acerto)partes.push(`<span class="nb">acerto de ${brl(p.acerto.valor)}</span>`);
   const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${p.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${c.parcela?esc(c.parcela)+", ":""}vence dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("")
     +(p.acerto?`<li><button type="button" data-a="transfprev" data-mes="${p.mesId}" data-de="${esc(p.acerto.de)}" data-para="${esc(p.acerto.para)}" data-v="${p.acerto.valor}"><span>Acerto<small>${esc(nomeDe(p.acerto.de))} para ${esc(nomeDe(p.acerto.para))}</small></span><span class="num">${brl(p.acerto.valor)}</span></button></li>`:"");
   return `<details class="pend"><summary><span class="pt">Pendências de ${MESES[+p.mesId.slice(5)-1]}</span><span class="ps num">${partes.join(" e ")}</span></summary><ul>${itens}</ul></details>`;
@@ -652,6 +655,12 @@ function dlgTransf(de,para,v,mesId){
       await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
 }
+function dlgAbrirProx(){
+  const prox=nextId(S.mesId);
+  openDlg("Abrir "+mesNome(prox)+"?","Este é o último mês aberto. As contas recorrentes entram com o valor de "+mesNome(S.mesId)+", marcadas como estimadas, e as parcelas do mês são lançadas.","",
+    cancelar+`<button class="btn" value="ok">Abrir ${esc(mesNome(prox))}</button>`,
+    async()=>{dlg.close();await abrirMes(prox);return false});
+}
 function dlgConta(id){
   const mes=S.meses[S.mesId],r=calc(mes,pagsMes()),c=r.contas.find(x=>x.id===id);if(!c)return;
   const pg=pagsMes().filter(g=>g.tipo==="conta"&&g.contaId===id);
@@ -668,15 +677,40 @@ function formConta(c,valorLabel,extra){
   `<label class="campo"><span id="lblValor">${valorLabel||"Valor (R$)"}</span><input name="valor" inputmode="decimal" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00"></label>`+
   (extra||"")+
   campo("Divisão",`<select name="regra" id="selRegra"><option value="igual" ${reg==="igual"?"selected":""}>${ps.length===2?"Meio a meio":"Partes iguais"}</option><option value="proporcional" ${reg==="proporcional"?"selected":""}>Proporcional à renda</option><option value="custom" ${reg==="custom"?"selected":""}>Percentual combinado</option></select>`)+
-  `<div class="duo" id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="0.1" value="${c?.pct?.[p.id]??(100/ps.length)}">`)).join("")}</div>`;
+  `<div id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>`<div class="duo">${campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="any" inputmode="decimal" value="${Math.round((c?.pct?.[p.id]??(100/ps.length))*10000)/10000}">`)}${campo("R$ de "+esc(p.nome),`<input name="rs_${esc(p.id)}" inputmode="decimal" placeholder="0,00" autocomplete="off">`)}</div>`).join("")}<p class="nota" id="pctHint"></p></div>`;
 }
 function lerConta(fd){
   const ps=pessoas(),regra=fd.get("regra");let pct=null;
-  if(regra==="custom"){pct={};let s=0;ps.forEach(p=>{pct[p.id]=Number(fd.get("pct_"+p.id))||0;s+=pct[p.id]});if(Math.abs(s-100)>0.01){toast("Os percentuais precisam somar 100%.");return null}}
+  if(regra==="custom"){pct={};let s=0;ps.forEach(p=>{pct[p.id]=Number(fd.get("pct_"+p.id))||0;s+=pct[p.id]});if(ps.some(p=>pct[p.id]<0)){toast("Os percentuais não podem ser negativos.");return null}if(Math.abs(s-100)>0.01){toast("Os percentuais precisam somar 100%.");return null}}
   const dia=Math.min(31,Math.max(1,parseInt(fd.get("dia"))||1));
   return {nome:String(fd.get("nome")).trim().toLowerCase(),dia,regra,pct};
 }
-function bindRegra(){$("#selRegra").addEventListener("change",e=>{$("#pctBox").hidden=e.target.value!=="custom"})}
+function bindRegra(){
+  const ps=pessoas(),box=$("#pctBox"),vEl=$('#dlg [name="valor"]');
+  const P=id=>box.querySelector('[name="pct_'+id+'"]'),R=id=>box.querySelector('[name="rs_'+id+'"]');
+  const T=()=>{const v=parseBRL(vEl?vEl.value:"");return isNaN(v)||v<0?0:v};
+  const fp=x=>String(Math.round(x*10000)/10000),pv=id=>Math.max(0,Number(P(id).value)||0);
+  const cents=(id,t)=>Math.round(t*pv(id)/100);
+  function dica(alvo){
+    const t=T();
+    $("#pctHint").textContent=!ps.length?"":t>0?(alvo?"Digite em % ou em R$. O restante vai para "+alvo.nome+": "+fp(pv(alvo.id))+"% (R$ "+toInput(cents(alvo.id,t))+").":"Digite em % ou em R$."):"Para digitar em reais, informe antes o valor da conta. Por enquanto vale o percentual.";
+  }
+  function tudo(){const t=T();ps.forEach(p=>{R(p.id).disabled=t<=0;R(p.id).value=t>0?toInput(cents(p.id,t)):""});dica(null)}
+  function resto(from){
+    if(ps.length<2)return;
+    const alvo=from===ps[ps.length-1].id?ps[0]:ps[ps.length-1],outros=ps.filter(p=>p.id!==alvo.id),t=T();
+    P(alvo.id).value=fp(Math.max(0,100-outros.reduce((a,p)=>a+pv(p.id),0)));
+    if(t>0)R(alvo.id).value=toInput(Math.max(0,t-outros.reduce((a,p)=>a+cents(p.id,t),0)));
+    dica(alvo);
+  }
+  $("#selRegra").addEventListener("change",e=>{box.hidden=e.target.value!=="custom";if(!box.hidden)tudo()});
+  ps.forEach(p=>{
+    P(p.id).addEventListener("input",()=>{const t=T();if(t>0)R(p.id).value=toInput(cents(p.id,t));resto(p.id)});
+    R(p.id).addEventListener("input",()=>{const t=T();if(t<=0)return;let c=parseBRL(R(p.id).value);if(isNaN(c)||c<0)c=0;P(p.id).value=fp(Math.min(100,c/t*100));resto(p.id)});
+  });
+  if(vEl)vEl.addEventListener("input",tudo);
+  tudo();
+}
 function dlgEditConta(id){
   const mes=S.meses[S.mesId],c=id?mes.contas[id]:null;
   openDlg(id?"Editar conta do mês":"Nova conta neste mês",id?"A mudança vale só para "+mesNome(S.mesId)+".":"Para repetir todo mês, cadastre em Ajustes.",
@@ -846,7 +880,7 @@ document.addEventListener("change",async e=>{
 });
 $("#gbtn").onclick=()=>dlgGrupos();
 $("#prev").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i>0){S.mesId=ids[i-1];render()}};
-$("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<ids.length-1){S.mesId=ids[i+1];render()}};
+$("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<0)return;if(i<ids.length-1){S.mesId=ids[i+1];render()}else dlgAbrirProx()};
 
 let toastT;
 function toast(msg){let el=$(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),3200)}
