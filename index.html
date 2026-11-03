@@ -177,7 +177,10 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .pend .nb{white-space:nowrap}
 .pend li button>.num{flex:none;white-space:nowrap;font-weight:700}
 .pend li button>span:first-child{min-width:0;overflow-wrap:anywhere}
-.pend ul{list-style:none;margin:0;padding:0 6px 6px}
+.pend{overflow:hidden}
+.pend ul{list-style:none;margin:0;padding:0 8px 6px}
+.pend li{min-width:0}
+.pend li button{box-sizing:border-box;max-width:100%}
 .pend li button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 8px;background:none;border:0;border-top:1px solid var(--warn);border-radius:0;cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
 .pend li button:hover{background:var(--surface)}
 .pend li button small{display:block;color:var(--muted);font-size:12px}
