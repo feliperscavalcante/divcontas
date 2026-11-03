@@ -166,6 +166,18 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .pr{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:12px 14px}
 .pr .em{font-weight:700;word-break:break-all}
 .pr select{margin-top:6px;width:100%;padding:9px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--sunk)}
+.pend{margin:0 0 14px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+.pend summary{list-style:none;cursor:pointer;display:block;position:relative;padding:10px 40px 10px 14px;font-size:14px}
+.pend summary::-webkit-details-marker{display:none}
+.pend summary::after{content:"\25BE";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:14px}
+.pend[open] summary::after{content:"\25B4"}
+.pend .pt{display:block;font-weight:700;color:var(--ink)}
+.pend .ps{display:block}
+.pend ul{list-style:none;margin:0;padding:0 6px 6px}
+.pend li button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 8px;background:none;border:0;border-top:1px solid var(--line);border-radius:0;cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
+.pend li button:hover{background:var(--sunk)}
+.pend li button small{display:block;color:var(--muted);font-size:12px}
+.nota{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -196,6 +208,10 @@ const pctf=x=>(x*100).toLocaleString("pt-BR",{maximumFractionDigits:1})+"%";
 const mesNome=id=>{const [y,m]=id.split("-").map(Number);return MESES[m-1]+" de "+y};
 const mesCurto=id=>{const [y,m]=id.split("-").map(Number);return MESES[m-1].slice(0,3)+"/"+String(y).slice(2)};
 const nextId=id=>{let [y,m]=id.split("-").map(Number);m++;if(m>12){m=1;y++}return y+"-"+String(m).padStart(2,"0")};
+const prevId=id=>{let [y,m]=id.split("-").map(Number);m--;if(m<1){m=12;y--}return y+"-"+String(m).padStart(2,"0")};
+const mesIdx=id=>{const [y,m]=id.split("-").map(Number);return y*12+(m-1)};
+const idxMes=n=>Math.floor(n/12)+"-"+String(n%12+1).padStart(2,"0");
+const somaMeses=(id,n)=>idxMes(mesIdx(id)+n);
 const hoje=()=>new Date();
 const hojeId=()=>{const d=hoje();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
 const hojeISO=()=>{const d=hoje();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
@@ -230,6 +246,14 @@ function regraTxt(c){
   return pessoas().map(p=>(c.pct?.[p.id]??0)+"%").join(" / ");
 }
 
+const parcelaTxt=c=>c.parcela&&c.parcelas?"parcela "+c.parcela+" de "+c.parcelas:"";
+/* Parcela que cai em um mês para um parcelamento, ou null se o mês está fora do período */
+function parcelaDoMes(t,mesId){
+  if(!t.parcelas||!t.inicio)return null;
+  const n=mesIdx(mesId)-mesIdx(t.inicio)+1;
+  return n>=1&&n<=t.parcelas?n:null;
+}
+
 /* ---------- banco de dados ---------- */
 async function q(promessa){const {data,error}=await promessa;if(error)throw error;return data}
 async function carregar(){
@@ -255,9 +279,9 @@ async function carregar(){
     q(sb.from("pagamentos").select("*").eq("grupo_id",gid))
   ]);
   if(seq!==S.seq)return;
-  S.config={moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao}))};
+  S.config={moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao,parcelas:x.parcelas||null,inicio:x.inicio||null}))};
   const m={};mes.forEach(x=>m[x.id]={rendas:x.rendas||{},contas:{}});
-  cm.forEach(x=>{if(m[x.mes_id])m[x.mes_id].contas[x.conta_id]={nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valor:x.valor,estimado:x.estimado}});
+  cm.forEach(x=>{if(m[x.mes_id])m[x.mes_id].contas[x.conta_id]={nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valor:x.valor,estimado:x.estimado,parcela:x.parcela||null,parcelas:x.parcelas||null}});
   S.meses=m;
   S.todosPags=pg.map(x=>({id:x.id,mes:x.mes_id,tipo:x.tipo,contaId:x.conta_id,quem:x.quem,de:x.de,para:x.para,valor:x.valor,data:x.data,obs:x.obs}));
   const ids=Object.keys(m).sort();
@@ -369,6 +393,27 @@ function renderSemPessoas(){
   app.innerHTML=`<div class="estado"><h2>Grupo sem pessoas</h2><p>${S.admin?"Adicione as pessoas que dividem as contas em Ajustes.":"Peça ao administrador para adicionar as pessoas deste grupo."}</p>${S.admin?`<button class="btn" data-a="irajustes">Abrir ajustes</button>`:""}</div>`;
 }
 
+/* Contas em aberto e acerto pendente do mês anterior. Só informativo: não altera o cálculo do mês atual. */
+function pendenciasAnteriores(){
+  const pid=prevId(S.mesId),pm=S.meses[pid];
+  if(!pm)return null;
+  const pr=calc(pm,S.todosPags.filter(p=>p.mes===pid));
+  const contas=pr.contas.filter(c=>c.status==="pendente"||c.status==="parcial")
+    .map(c=>({id:c.id,nome:c.nome,dia:c.dia,falta:c.valor-c.pagoConta,parcial:c.status==="parcial",parcela:parcelaTxt(c)}));
+  const acerto=pr.acerto>0?{de:pr.devedor,para:pr.credor,valor:pr.acerto}:null;
+  if(!contas.length&&!acerto)return null;
+  return {mesId:pid,contas,acerto,total:contas.reduce((a,c)=>a+c.falta,0)};
+}
+function htmlPendencias(){
+  const p=pendenciasAnteriores();if(!p)return "";
+  const partes=[];
+  if(p.contas.length)partes.push(p.contas.length+(p.contas.length===1?" conta":" contas")+" ("+brl(p.total)+")");
+  if(p.acerto)partes.push("acerto de "+brl(p.acerto.valor));
+  const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${p.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${c.parcela?esc(c.parcela)+", ":""}vence dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("")
+    +(p.acerto?`<li><button type="button" data-a="transfprev" data-mes="${p.mesId}" data-de="${esc(p.acerto.de)}" data-para="${esc(p.acerto.para)}" data-v="${p.acerto.valor}"><span>Acerto<small>${esc(nomeDe(p.acerto.de))} para ${esc(nomeDe(p.acerto.para))}</small></span><span class="num">${brl(p.acerto.valor)}</span></button></li>`:"");
+  return `<details class="pend"><summary><span class="pt">Em aberto de ${MESES[+p.mesId.slice(5)-1]}</span><span class="ps num">${partes.join(" e ")}</span></summary><ul>${itens}</ul></details>`;
+}
+
 function renderMes(){
   const ids=Object.keys(S.meses).sort();
   if(!S.mesId||!S.meses[S.mesId]){
@@ -403,7 +448,7 @@ function renderMes(){
     const st=STATUS[c.status],pz=prazo(c,S.mesId);
     return `<li><button class="conta" data-a="conta" data-id="${esc(c.id)}">
       <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
-      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}</span></span>
+      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}${c.parcela?" · "+parcelaTxt(c):""}</span></span>
       <span class="dir"><span class="vl num">${brl(c.valor)}</span><span class="chips">
         ${c.estimado&&c.status!=="pago"?`<span class="chip warn">Estimado</span>`:""}
         ${pz?`<span class="chip ${pz.cls}">${pz.txt}</span>`:`<span class="chip ${st[0]}">${st[1]}</span>`}
@@ -416,10 +461,11 @@ function renderMes(){
   }).join("");
   const isUlt=S.mesId===ids[ids.length-1],prox=nextId(S.mesId);
   app.innerHTML=`<div class="hero">${hero}${acts}</div>
+  ${htmlPendencias()}
   <div class="balanca">${pes}<div class="rendas"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div>
   <section><div class="sec-h"><h2>Contas</h2><span class="meta num">${r.rendaTotal?pctf(r.total/r.rendaTotal)+" da renda do grupo":""}</span></div>
     <ul class="lista">${lis||`<li class="vazio">Nenhuma conta neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
-    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button></p></section>
+    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></section>
   <section><div class="sec-h"><h2>Movimentos</h2><span class="meta">${pags.length} ${pags.length===1?"registro":"registros"}</span></div>
     <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma conta, registre aqui.</li>`}</ul></section>
   ${isUlt?`<section style="text-align:center"><button class="btn ghost" data-a="abrir" data-id="${prox}">Abrir ${mesNome(prox)}</button>
@@ -454,10 +500,13 @@ function renderAjustes(){
   h+=`<section><div class="sec-h"><h2>Pessoas</h2>${ps.length?`<button class="link" data-a="moradores">Editar nomes</button>`:""}</div>
     <div class="card">${ps.map((p,i)=>`<p><strong style="color:${varCor(i)}">${esc(p.nome)}</strong></p>`).join("")||`<p>Nenhuma pessoa cadastrada.</p>`}</div></section>`;
   if(membro){
-    h+=`<section><div class="sec-h"><h2>Contas recorrentes</h2><button class="link" data-a="tpl">Adicionar</button></div>
-    <ul class="lista">${cs.map(c=>`<li><button class="conta" data-a="tpl" data-id="${esc(c.id)}">
+    h+=`<section><div class="sec-h"><h2>Contas recorrentes</h2><span><button class="link" data-a="tpl">Adicionar</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar</button></span></div>
+    <ul class="lista">${cs.map(c=>{
+      const fim=c.parcelas&&c.inicio?somaMeses(c.inicio,c.parcelas-1):null;
+      const sub=fim?`${regraTxt(c)} · ${c.parcelas}x de ${brl(c.valorPadrao)}, ${mesCurto(c.inicio)} a ${mesCurto(fim)}`:regraTxt(c);
+      return `<li><button class="conta" data-a="tpl" data-id="${esc(c.id)}">
       <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
-      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${regraTxt(c)}</span></span><span></span></button></li>`).join("")||`<li class="vazio">Nenhuma conta recorrente. Adicione aluguel, luz e as demais contas fixas.</li>`}</ul>
+      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${sub}</span></span>${fim&&fim<hojeId()?`<span class="chip ok">Concluída</span>`:"<span></span>"}</button></li>`}).join("")||`<li class="vazio">Nenhuma conta recorrente. Adicione aluguel, luz e as demais contas fixas.</li>`}</ul>
     <p class="nota">Mudanças aqui valem para os próximos meses abertos. Para mudar um mês que já existe, toque na conta dentro dele.</p></section>`;
   }
   if(S.admin){
@@ -570,50 +619,53 @@ async function vincular(email,moradorId){
   toast("Vínculo atualizado.");await carregar();
 }
 
-function dlgPagar(contaId){
-  const mes=S.meses[S.mesId],r=calc(mes,pagsMes());
+function dlgPagar(contaId,mesId){
+  mesId=mesId||S.mesId;
+  const mes=S.meses[mesId],r=calc(mes,S.todosPags.filter(p=>p.mes===mesId));
   const ordem=r.contas.slice().sort((a,b)=>(a.status==="pago")-(b.status==="pago"));
   const sel=contaId||ordem.find(c=>c.status!=="pago")?.id||ordem[0]?.id;
   if(!sel){toast("Adicione uma conta antes.");return}
   const rest=id=>{const c=r.contas.find(x=>x.id===id);return c?Math.max(0,c.valor-c.pagoConta)||c.valor:0};
-  openDlg("Registrar pagamento","Quem pagou a conta direto ao fornecedor.",
+  openDlg("Registrar pagamento",mesId===S.mesId?"Quem pagou a conta direto ao fornecedor.":"Conta de "+mesNome(mesId)+". O pagamento fica registrado nesse mês.",
     campo("Conta",`<select name="conta" id="selConta">${ordem.map(c=>`<option value="${esc(c.id)}" ${c.id===sel?"selected":""}>${esc(c.nome)} (${brl(c.valor)})${c.status==="pago"?", já paga":""}</option>`).join("")}</select>`)+
     `<div class="duo">${campo("Quem pagou",`<select name="quem">${optP(meuMorador()||pessoas()[0]?.id)}</select>`)}${campo("Valor (R$)",valInput("valor",rest(sel)))}</div>`+
     `<div class="duo">${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}${campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional">`)}</div>`,
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
     async fd=>{const v=parseBRL(fd.get("valor"));if(!needVal(v))return false;
       const cid=fd.get("conta");
-      await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:S.mesId,tipo:"conta",conta_id:cid,quem:fd.get("quem"),valor:v,data:fd.get("data"),obs:fd.get("obs")||""}));
-      if(mes.contas[cid]?.estimado)await q(S.sb.from("contas_mes").update({estimado:false}).eq("grupo_id",gid()).eq("mes_id",S.mesId).eq("conta_id",cid));
+      await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"conta",conta_id:cid,quem:fd.get("quem"),valor:v,data:fd.get("data"),obs:fd.get("obs")||""}));
+      if(mes.contas[cid]?.estimado)await q(S.sb.from("contas_mes").update({estimado:false}).eq("grupo_id",gid()).eq("mes_id",mesId).eq("conta_id",cid));
       toast("Pagamento registrado.");});
   $("#selConta").addEventListener("change",e=>{dlg.querySelector("[name=valor]").value=toInput(rest(e.target.value))});
 }
-function dlgTransf(de,para,v){
+function dlgTransf(de,para,v,mesId){
+  mesId=mesId||S.mesId;
   const ps=pessoas();de=de||meuMorador()||ps[0]?.id;para=para||ps.find(p=>p.id!==de)?.id;
-  openDlg("Registrar transferência","Dinheiro que um passou para o outro para acertar as contas.",
+  openDlg("Registrar transferência",mesId===S.mesId?"Dinheiro que um passou para o outro para acertar as contas.":"Acerto de "+mesNome(mesId)+". A transferência fica registrada nesse mês.",
     `<div class="duo">${campo("De",`<select name="de">${optP(de)}</select>`)}${campo("Para",`<select name="para">${optP(para)}</select>`)}</div>`+
     `<div class="duo">${campo("Valor (R$)",valInput("valor",v||null))}${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}</div>`+
     campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional, ex.: Pix">`),
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
     async fd=>{const val=parseBRL(fd.get("valor"));if(!needVal(val))return false;
       if(fd.get("de")===fd.get("para")){toast("Escolha pessoas diferentes.");return false}
-      await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:S.mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
+      await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
 }
 function dlgConta(id){
   const mes=S.meses[S.mesId],r=calc(mes,pagsMes()),c=r.contas.find(x=>x.id===id);if(!c)return;
   const pg=pagsMes().filter(g=>g.tipo==="conta"&&g.contaId===id);
-  openDlg(esc(c.nome),`Vence dia ${c.dia}, dividida ${regraTxt(c)}${c.estimado?". Valor ainda estimado":""}.`,
+  openDlg(esc(c.nome),`Vence dia ${c.dia}, dividida ${regraTxt(c)}${c.parcela?", "+parcelaTxt(c):""}${c.estimado?". Valor ainda estimado":""}.`,
     `<div class="det num"><div><span>Valor</span><strong>${brl(c.valor)}</strong></div>${r.ps.map(p=>`<div><span>Parte de ${esc(p.nome)}</span><span>${brl(c.partes[p.id])}</span></div>`).join("")}
      <div><span>Pago até agora</span><span>${brl(c.pagoConta)}</span></div></div>
      ${pg.length?`<div class="det">${pg.map(g=>`<div><span>${dataBR(g.data)}, ${esc(nomeDe(g.quem))}</span><span class="num">${brl(g.valor)}</span></div>`).join("")}</div>`:""}`,
     `<button class="btn ghost esq" value="edit">Editar</button><button class="btn ghost" value="cancel" formnovalidate>Fechar</button>${c.status!=="pago"?`<button class="btn" value="pay">Registrar pagamento</button>`:""}`,
     async(fd,act)=>{dlg.close();if(act==="pay")dlgPagar(id);else if(act==="edit")dlgEditConta(id);return false});
 }
-function formConta(c,valorLabel){
+function formConta(c,valorLabel,extra){
   const ps=pessoas(),reg=c?.regra||"igual";
   return `<div class="duo">${campo("Nome",`<input name="nome" required maxlength="40" value="${esc(c?.nome||"")}">`)}${campo("Dia do vencimento",`<input name="dia" type="number" min="1" max="31" required value="${c?.dia||""}">`)}</div>`+
-  campo(valorLabel||"Valor (R$)",`<input name="valor" inputmode="decimal" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00">`)+
+  `<label class="campo"><span id="lblValor">${valorLabel||"Valor (R$)"}</span><input name="valor" inputmode="decimal" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00"></label>`+
+  (extra||"")+
   campo("Divisão",`<select name="regra" id="selRegra"><option value="igual" ${reg==="igual"?"selected":""}>${ps.length===2?"Meio a meio":"Partes iguais"}</option><option value="proporcional" ${reg==="proporcional"?"selected":""}>Proporcional à renda</option><option value="custom" ${reg==="custom"?"selected":""}>Percentual combinado</option></select>`)+
   `<div class="duo" id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="0.1" value="${c?.pct?.[p.id]??(100/ps.length)}">`)).join("")}</div>`;
 }
@@ -650,18 +702,63 @@ function dlgRendas(){
     async fd=>{const rendas={};for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
       await q(S.sb.from("meses").update({rendas}).eq("grupo_id",gid()).eq("id",S.mesId));toast("Rendas atualizadas.");});
 }
-function dlgTpl(id){
+const LBL_FIXA="Valor padrão (R$), usado só se não houver mês anterior",LBL_PARC="Valor de cada parcela (R$)";
+function opcoesMeses(sel){
+  const ini=somaMeses(hojeId(),-24),ids=[];
+  for(let i=0;i<=30;i++)ids.push(somaMeses(ini,i));
+  if(sel&&!ids.includes(sel)){ids.push(sel);ids.sort()}
+  return ids.map(id=>`<option value="${id}" ${id===sel?"selected":""}>${mesNome(id)}</option>`).join("");
+}
+/* Cria a parcela nos meses já abertos (a partir de "desde") que ainda não a têm */
+async function completarParcelas(t,desde){
+  desde=desde||S.mesId||hojeId();
+  const linhas=[];
+  for(const mid of Object.keys(S.meses).sort()){
+    if(mid<desde)continue;
+    const n=parcelaDoMes(t,mid);
+    if(!n||S.meses[mid].contas[t.id])continue;
+    linhas.push({grupo_id:gid(),mes_id:mid,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null,valor:t.valorPadrao,estimado:false,parcela:n,parcelas:t.parcelas});
+  }
+  if(linhas.length)await q(S.sb.from("contas_mes").insert(linhas));
+  return linhas.length;
+}
+function dlgTpl(id,parcelado){
   const c=id?S.config.contas.find(x=>x.id===id):null;
-  openDlg(id?"Conta recorrente":"Nova conta recorrente","Entra automaticamente em cada mês novo.",
-    formConta(c?Object.assign({},c,{valor:c.valorPadrao}):null,"Valor padrão (R$), usado só se não houver mês anterior"),
+  const eParc=c?!!c.parcelas:!!parcelado,desde=S.mesId||hojeId();
+  const extra=`<div id="parcBox" ${eParc?"":"hidden"} style="display:${eParc?"grid":"none"};gap:14px">
+    <div class="duo">${campo("Número de parcelas",`<input name="parcelas" type="number" min="2" max="120" step="1" inputmode="numeric" value="${c?.parcelas||""}" placeholder="Ex.: 10">`)}${campo("Primeira parcela em",`<select name="inicio">${opcoesMeses(c?.inicio||desde)}</select>`)}</div>
+    <p class="nota" style="margin:0">Se a compra já começou, escolha o mês da primeira parcela. As parcelas só são criadas de ${mesNome(desde)} em diante, os meses anteriores não mudam. Mudanças aqui valem para os meses ainda não abertos.</p></div>`;
+  const tipo=campo("Tipo",`<select name="tipo" id="selTipo"><option value="fixa" ${eParc?"":"selected"}>Fixa, repete todo mês</option><option value="parcelada" ${eParc?"selected":""}>Parcelada, termina após certo número de parcelas</option></select>`);
+  openDlg(id?(eParc?"Conta parcelada":"Conta recorrente"):(eParc?"Parcelar uma compra":"Nova conta recorrente"),"Entra automaticamente em cada mês novo.",
+    tipo+formConta(c?Object.assign({},c,{valor:c.valorPadrao}):null,eParc?LBL_PARC:LBL_FIXA,extra),
     (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async(fd,act)=>{
-      if(act==="del"){if(!confirm("Parar de gerar esta conta nos próximos meses?"))return false;await q(S.sb.from("contas_recorrentes").delete().eq("grupo_id",gid()).eq("id",id));toast("Conta removida dos próximos meses.");return}
+      if(act==="del"){
+        const msg=c?.parcelas?"Parar de gerar as próximas parcelas? As parcelas dos meses já abertos continuam.":"Parar de gerar esta conta nos próximos meses?";
+        if(!confirm(msg))return false;await q(S.sb.from("contas_recorrentes").delete().eq("grupo_id",gid()).eq("id",id));toast("Conta removida dos próximos meses.");return}
       const base=lerConta(fd);if(!base)return false;const v=parseBRL(fd.get("valor")||"0");
-      await q(S.sb.from("contas_recorrentes").upsert(Object.assign({grupo_id:gid(),id:id||slug(base.nome)},base,{valor_padrao:isNaN(v)?0:v})));
-      toast("Conta recorrente salva.");
+      const parc=fd.get("tipo")==="parcelada";
+      let parcelas=null,inicio=null;
+      if(parc){
+        parcelas=parseInt(fd.get("parcelas"),10);
+        if(!(parcelas>=2&&parcelas<=120)){toast("Informe o número de parcelas, de 2 a 120.");return false}
+        if(!(v>0)){toast("Informe o valor de cada parcela.");return false}
+        inicio=String(fd.get("inicio"));
+      }
+      const rid=id||slug(base.nome);
+      const reg=Object.assign({grupo_id:gid(),id:rid},base,{valor_padrao:isNaN(v)?0:v});
+      if(parc||c?.parcelas){reg.parcelas=parcelas;reg.inicio=inicio}
+      await q(S.sb.from("contas_recorrentes").upsert(reg));
+      let n=0;
+      if(parc)n=await completarParcelas({id:rid,nome:base.nome,dia:base.dia,regra:base.regra,pct:base.pct,valorPadrao:reg.valor_padrao,parcelas,inicio},desde);
+      toast(parc?(n?"Parcelamento salvo. "+n+(n===1?" parcela lançada":" parcelas lançadas")+" nos meses abertos.":"Parcelamento salvo."):"Conta recorrente salva.");
     });
   bindRegra();
+  $("#selTipo").addEventListener("change",e=>{
+    const p=e.target.value==="parcelada";
+    const box=$("#parcBox");box.hidden=!p;box.style.display=p?"grid":"none";
+    $("#lblValor").textContent=p?LBL_PARC:LBL_FIXA;
+  });
 }
 function dlgMoradores(){
   const ps=pessoas();
@@ -680,7 +777,15 @@ async function abrirMes(novoId){
   if(!S.meses[novoId]){
     const ids=Object.keys(S.meses).sort().filter(x=>x<novoId),base=ids.length?S.meses[ids[ids.length-1]]:null;
     await q(S.sb.from("meses").insert({grupo_id:gid(),id:novoId,rendas:base?.rendas||{}}));
-    const linhas=(S.config.contas||[]).map(t=>({grupo_id:gid(),mes_id:novoId,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null,valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
+    const linhas=[];
+    for(const t of S.config.contas||[]){
+      const comum={grupo_id:gid(),mes_id:novoId,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null};
+      if(t.parcelas){
+        const n=parcelaDoMes(t,novoId);if(!n)continue;
+        linhas.push(Object.assign(comum,{valor:t.valorPadrao||0,estimado:false,parcela:n,parcelas:t.parcelas}));
+      }else linhas.push(Object.assign(comum,{valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
+    }
+    if(linhas.some(l=>"parcela" in l))linhas.forEach(l=>{if(!("parcela" in l)){l.parcela=null;l.parcelas=null}});
     if(linhas.length)await q(S.sb.from("contas_mes").insert(linhas));
     toast(mesNome(novoId)+" aberto.");
   }
@@ -692,11 +797,11 @@ async function delPag(id){
 }
 function exportCSV(){
   const qt=v=>`"${String(v??"").replace(/"/g,'""')}"`,n=c=>((c||0)/100).toFixed(2).replace(".",",");
-  const L=["tipo;mes;data;conta;pessoa;para;valor;regra;estimado;obs"];
+  const L=["tipo;mes;data;conta;pessoa;para;valor;regra;estimado;obs;parcela"];
   for(const id of Object.keys(S.meses).sort()){
     const m=S.meses[id];
-    for(const c of Object.values(m.contas||{}))L.push(["conta",id,"",qt(c.nome),"","",n(c.valor),qt(regraTxt(c)),c.estimado?"sim":"não",""].join(";"));
-    for(const g of S.todosPags.filter(p=>p.mes===id))L.push([g.tipo==="conta"?"pagamento":"transferencia",id,g.data,qt(g.tipo==="conta"?m.contas?.[g.contaId]?.nome:""),qt(nomeDe(g.tipo==="conta"?g.quem:g.de)),qt(g.para?nomeDe(g.para):""),n(g.valor),"","",qt(g.obs)].join(";"));
+    for(const c of Object.values(m.contas||{}))L.push(["conta",id,"",qt(c.nome),"","",n(c.valor),qt(regraTxt(c)),c.estimado?"sim":"não","",c.parcela?c.parcela+"/"+c.parcelas:""].join(";"));
+    for(const g of S.todosPags.filter(p=>p.mes===id))L.push([g.tipo==="conta"?"pagamento":"transferencia",id,g.data,qt(g.tipo==="conta"?m.contas?.[g.contaId]?.nome:""),qt(nomeDe(g.tipo==="conta"?g.quem:g.de)),qt(g.para?nomeDe(g.para):""),n(g.valor),"","",qt(g.obs),""].join(";"));
   }
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L.join("\n")],{type:"text/csv;charset=utf-8"}));
   a.download="contas-"+slugSimples(grupoAtual()?.nome||"casa")+".csv";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
@@ -710,6 +815,9 @@ document.addEventListener("click",async e=>{
       else if(a==="transf")dlgTransf(b.dataset.de,b.dataset.para,b.dataset.v?Number(b.dataset.v):null);
       else if(a==="conta")dlgConta(b.dataset.id);
       else if(a==="novaconta")dlgEditConta(null);
+      else if(a==="novoparcelamento")dlgTpl(null,true);
+      else if(a==="pagprev")dlgPagar(b.dataset.id,b.dataset.mes);
+      else if(a==="transfprev")dlgTransf(b.dataset.de,b.dataset.para,Number(b.dataset.v),b.dataset.mes);
       else if(a==="rendas")dlgRendas();
       else if(a==="abrir"){b.disabled=true;await abrirMes(b.dataset.id)}
       else if(a==="delpag")await delPag(b.dataset.id);
