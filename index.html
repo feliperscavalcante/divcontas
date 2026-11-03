@@ -166,16 +166,17 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .pr{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:12px 14px}
 .pr .em{font-weight:700;word-break:break-all}
 .pr select{margin-top:6px;width:100%;padding:9px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--sunk)}
-.pend{margin:0 0 14px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
-.pend summary{list-style:none;cursor:pointer;display:block;position:relative;padding:10px 40px 10px 14px;font-size:14px}
+.pend{margin:0 0 14px;border:1px solid var(--warn);border-left:6px solid var(--warn);border-radius:14px;background:var(--warn-bg);color:var(--ink)}
+.pend summary{list-style:none;cursor:pointer;display:block;position:relative;padding:10px 40px 10px 52px;font-size:14px}
 .pend summary::-webkit-details-marker{display:none}
-.pend summary::after{content:"\25BE";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:14px}
+.pend summary::before{content:"!";position:absolute;left:12px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:var(--warn);color:var(--warn-bg);font-weight:800;font-size:17px;line-height:28px;text-align:center}
+.pend summary::after{content:"\25BE";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--warn)}
 .pend[open] summary::after{content:"\25B4"}
-.pend .pt{display:block;font-weight:700;color:var(--ink)}
-.pend .ps{display:block}
+.pend .pt{display:block;font-weight:700;color:var(--warn)}
+.pend .ps{display:block;color:var(--ink)}
 .pend ul{list-style:none;margin:0;padding:0 6px 6px}
-.pend li button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 8px;background:none;border:0;border-top:1px solid var(--line);border-radius:0;cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
-.pend li button:hover{background:var(--sunk)}
+.pend li button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 8px;background:none;border:0;border-top:1px solid var(--warn);border-radius:0;cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
+.pend li button:hover{background:var(--surface)}
 .pend li button small{display:block;color:var(--muted);font-size:12px}
 .nota{overflow-wrap:anywhere}
 </style>
@@ -411,7 +412,7 @@ function htmlPendencias(){
   if(p.acerto)partes.push("acerto de "+brl(p.acerto.valor));
   const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${p.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${c.parcela?esc(c.parcela)+", ":""}vence dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("")
     +(p.acerto?`<li><button type="button" data-a="transfprev" data-mes="${p.mesId}" data-de="${esc(p.acerto.de)}" data-para="${esc(p.acerto.para)}" data-v="${p.acerto.valor}"><span>Acerto<small>${esc(nomeDe(p.acerto.de))} para ${esc(nomeDe(p.acerto.para))}</small></span><span class="num">${brl(p.acerto.valor)}</span></button></li>`:"");
-  return `<details class="pend"><summary><span class="pt">Em aberto de ${MESES[+p.mesId.slice(5)-1]}</span><span class="ps num">${partes.join(" e ")}</span></summary><ul>${itens}</ul></details>`;
+  return `<details class="pend"><summary><span class="pt">Pendências de ${MESES[+p.mesId.slice(5)-1]}</span><span class="ps num">${partes.join(" e ")}</span></summary><ul>${itens}</ul></details>`;
 }
 
 function renderMes(){
