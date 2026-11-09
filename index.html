@@ -387,7 +387,7 @@ async function carregar(){
   S.config={moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao,parcelas:x.parcelas||null,inicio:x.inicio||null}))};
   const m={};mes.forEach(x=>m[x.id]={rendas:x.rendas||{},contas:{}});
   cm.forEach(x=>{if(m[x.mes_id])m[x.mes_id].contas[x.conta_id]={nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valor:x.valor,estimado:x.estimado,parcela:x.parcela||null,parcelas:x.parcelas||null}});
-  S.meses=m;
+  S.meses=m;projetar();
   S.todosPags=pg.map(x=>({id:x.id,mes:x.mes_id,tipo:x.tipo,contaId:x.conta_id,quem:x.quem,de:x.de,para:x.para,valor:x.valor,data:x.data,obs:x.obs}));
   const ids=Object.keys(m).sort();
   if(!S.mesId||!m[S.mesId])S.mesId=m[hojeId()]?hojeId():ids[ids.length-1]||null;
@@ -453,7 +453,7 @@ function render(){
   $("#mais").style.visibility=temMes?"visible":"hidden";
   if(!temMes)fecharMais();
   $("#fab").hidden=!temMes;
-  $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0;
+  $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0||i>=ids.length-1;
   $("#prev").style.visibility=$("#next").style.visibility=naMes?"visible":"hidden";
   $("#titulo").textContent=naMes&&S.mesId?mesNome(S.mesId):mostraAbas&&S.tab==="hist"?"Histórico":mostraAbas&&S.tab==="ajustes"?"Ajustes":"Contas da casa";
   $("#titulo").classList.toggle("mes-ativo",!!(naMes&&S.mesId));
@@ -510,7 +510,7 @@ function renderSemPessoas(){
 /* Contas em aberto e acerto pendente do mês anterior. Só informativo: não altera o cálculo do mês atual. */
 function pendenciasAnteriores(){
   const pid=prevId(S.mesId),pm=S.meses[pid];
-  if(!pm)return null;
+  if(!pm||pm.virtual||pid>hojeId())return null;
   const pr=calc(pm,S.todosPags.filter(p=>p.mes===pid));
   const contas=pr.contas.filter(c=>c.status==="pendente"||c.status==="parcial")
     .map(c=>({id:c.id,nome:c.nome,dia:c.dia,falta:c.valor-c.pagoConta,parcial:c.status==="parcial",parcela:parcelaTxt(c)}));
@@ -575,10 +575,10 @@ function renderMes(){
     return `<li class="mov"><span><span class="t">${t}</span><br><span class="d">${dataBR(g.data)}${g.obs?", "+esc(g.obs):""}</span></span><span class="num">${brl(g.valor)}</span>
       <button class="x" data-a="delpag" data-id="${esc(g.id)}" aria-label="Excluir movimento">×</button></li>`;
   }).join("");
-  const isUlt=S.mesId===ids[ids.length-1],prox=nextId(S.mesId);
   const nPend=r.contas.filter(c=>c.status==="pendente"||c.status==="parcial").length;
   const resumoContas=r.contas.length?r.contas.length+(r.contas.length===1?" conta":" contas")+(nPend?", "+nPend+(nPend===1?" em aberto":" em aberto"):", todas pagas"):"nenhuma conta";
-  app.innerHTML=`${resumo}
+  const prev=mes.virtual?`<p class="nota previsao">Previsão. Nada foi lançado neste mês ainda: as contas fixas usam o valor do último mês e as parcelas entram com o valor combinado. Ao registrar um pagamento ou editar algo aqui, o mês passa a valer.</p>`:"";
+  app.innerHTML=`${resumo}${prev}
   ${htmlPendencias()}
   <div class="status">${hero}</div>
   <section style="margin-top:14px"><div class="pgrid">${pes}</div><div class="rendas"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div></section>
@@ -587,11 +587,10 @@ function renderMes(){
     <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></details></section>
   <section><details class="sec" data-sec="mov" ${S.sec.mov?"open":""}><summary><h2>Movimentos</h2><span class="meta num">${pags.length} ${pags.length===1?"registro":"registros"}</span></summary>
     <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma conta, registre aqui.</li>`}</ul></details></section>
-  ${isUlt?`<section style="text-align:center"><button class="btn ghost" data-a="abrir" data-id="${prox}">Abrir ${mesNome(prox)}</button>
-    <p class="nota">As contas recorrentes entram com o valor deste mês, marcadas como estimadas até você confirmar.</p></section>`:""}`;
+`;
 }
 function renderHist(){
-  const ids=Object.keys(S.meses).sort();
+  const ids=Object.keys(S.meses).filter(x=>!S.meses[x].virtual).sort();
   if(!ids.length){app.innerHTML=`<div class="estado"><h2>Sem histórico</h2><p>Abra um mês para começar.</p></div>`;return}
   const tot=ids.map(id=>{const c=Object.values(S.meses[id].contas||{});const t=c.reduce((a,x)=>a+(x.valor||0),0);const rd=Object.values(S.meses[id].rendas||{}).reduce((a,b)=>a+b,0);return{id,t,rd,est:c.some(x=>x.estimado)}});
   const max=Math.max(1,...tot.map(x=>x.t));
@@ -626,7 +625,7 @@ function renderAjustes(){
       return `<li><button class="conta" data-a="tpl" data-id="${esc(c.id)}">
       <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
       <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${sub}</span></span>${fim&&fim<hojeId()?`<span class="chip ok">Concluída</span>`:"<span></span>"}</button></li>`}).join("")||`<li class="vazio">Nenhuma conta recorrente. Adicione aluguel, luz e as demais contas fixas.</li>`}</ul>
-    <p class="nota">Mudanças aqui valem para os próximos meses abertos. Para mudar um mês que já existe, toque na conta dentro dele.</p></section>`;
+    <p class="nota">Mudanças aqui valem para os meses futuros ainda sem lançamentos. Para mudar um mês que já tem lançamentos, toque na conta dentro dele.</p></section>`;
   }
   if(S.admin){
     const ms=membrosDoGrupo().slice().sort((a,b)=>a.email.localeCompare(b.email));
@@ -752,6 +751,7 @@ function dlgPagar(contaId,mesId){
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
     async fd=>{const v=parseBRL(fd.get("valor"));if(!needVal(v))return false;
       const cid=fd.get("conta");
+      await garantirMes(mesId);
       await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"conta",conta_id:cid,quem:fd.get("quem"),valor:v,data:fd.get("data"),obs:fd.get("obs")||""}));
       if(mes.contas[cid]?.estimado)await q(S.sb.from("contas_mes").update({estimado:false}).eq("grupo_id",gid()).eq("mes_id",mesId).eq("conta_id",cid));
       toast("Pagamento registrado.");});
@@ -767,6 +767,7 @@ function dlgTransf(de,para,v,mesId){
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
     async fd=>{const val=parseBRL(fd.get("valor"));if(!needVal(val))return false;
       if(fd.get("de")===fd.get("para")){toast("Escolha pessoas diferentes.");return false}
+      await garantirMes(mesId);
       await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
 }
@@ -826,12 +827,6 @@ function sugerirSenha(){
   try{const t=Number(localStorage.getItem("senha_adiada_"+u.id)||0);if(t&&Date.now()-t<7*864e5)return}catch(e){}
   dlgSenha(true);
 }
-function dlgAbrirProx(){
-  const prox=nextId(S.mesId);
-  openDlg("Abrir "+mesNome(prox)+"?","Este é o último mês aberto. As contas recorrentes entram com o valor de "+mesNome(S.mesId)+", marcadas como estimadas, e as parcelas do mês são lançadas.","",
-    cancelar+`<button class="btn" value="ok">Abrir ${esc(mesNome(prox))}</button>`,
-    async()=>{dlg.close();await abrirMes(prox);return false});
-}
 function dlgConta(id){
   const mes=S.meses[S.mesId],r=calc(mes,pagsMes()),c=r.contas.find(x=>x.id===id);if(!c)return;
   const pg=pagsMes().filter(g=>g.tipo==="conta"&&g.contaId===id);
@@ -889,12 +884,14 @@ function dlgEditConta(id){
     (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async(fd,act)=>{
       if(act==="del"){
+        await garantirMes(S.mesId);
         if(pagsMes().some(g=>g.contaId===id)){toast("Exclua antes os pagamentos desta conta.");return false}
         if(!confirm("Remover esta conta de "+mesNome(S.mesId)+"?"))return false;
         await q(S.sb.from("contas_mes").delete().eq("grupo_id",gid()).eq("mes_id",S.mesId).eq("conta_id",id));toast("Conta removida.");return;
       }
       const base=lerConta(fd);if(!base)return false;
       const v=parseBRL(fd.get("valor")||"0");if(isNaN(v)||v<0){toast("Valor inválido.");return false}
+      await garantirMes(S.mesId);
       await q(S.sb.from("contas_mes").upsert(Object.assign({grupo_id:gid(),mes_id:S.mesId,conta_id:id||slug(base.nome)},base,{valor:v,estimado:id?(c.estimado&&!fd.get("conf")):false})));
       toast("Conta salva.");
     });
@@ -902,10 +899,11 @@ function dlgEditConta(id){
 }
 function dlgRendas(){
   const mes=S.meses[S.mesId];
-  openDlg("Rendas de "+mesNome(S.mesId),"Usadas nas contas divididas pela renda. O próximo mês aberto copia estes valores.",
+  openDlg("Rendas de "+mesNome(S.mesId),"Usadas nas contas divididas pela renda. Os meses futuros ainda não editados usam estes valores.",
     pessoas().map(p=>campo(esc(p.nome)+" (R$)",valInput("r_"+p.id,mes.rendas?.[p.id]||0))).join(""),
     cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async fd=>{const rendas={};for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
+      await garantirMes(S.mesId);
       await q(S.sb.from("meses").update({rendas}).eq("grupo_id",gid()).eq("id",S.mesId));toast("Rendas atualizadas.");});
 }
 const LBL_FIXA="Valor padrão (R$), usado só se não houver mês anterior",LBL_PARC="Valor de cada parcela (R$)";
@@ -915,12 +913,12 @@ function opcoesMeses(sel){
   if(sel&&!ids.includes(sel)){ids.push(sel);ids.sort()}
   return ids.map(id=>`<option value="${id}" ${id===sel?"selected":""}>${mesNome(id)}</option>`).join("");
 }
-/* Cria a parcela nos meses já abertos (a partir de "desde") que ainda não a têm */
+/* Cria a parcela nos meses que já têm registro no banco (a partir de "desde") e ainda não a têm. Meses futuros previstos recebem a parcela sozinhos. */
 async function completarParcelas(t,desde){
   desde=desde||S.mesId||hojeId();
   const linhas=[];
   for(const mid of Object.keys(S.meses).sort()){
-    if(mid<desde)continue;
+    if(mid<desde||S.meses[mid].virtual)continue;
     const n=parcelaDoMes(t,mid);
     if(!n||S.meses[mid].contas[t.id])continue;
     linhas.push({grupo_id:gid(),mes_id:mid,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null,valor:t.valorPadrao,estimado:false,parcela:n,parcelas:t.parcelas});
@@ -933,14 +931,14 @@ function dlgTpl(id,parcelado){
   const eParc=c?!!c.parcelas:!!parcelado,desde=S.mesId||hojeId();
   const extra=`<div id="parcBox" ${eParc?"":"hidden"} style="display:${eParc?"grid":"none"};gap:14px">
     <div class="duo">${campo("Número de parcelas",`<input name="parcelas" type="number" min="2" max="120" step="1" inputmode="numeric" value="${c?.parcelas||""}" placeholder="Ex.: 10">`)}${campo("Primeira parcela em",`<select name="inicio">${opcoesMeses(c?.inicio||desde)}</select>`)}</div>
-    <p class="nota" style="margin:0">Se a compra já começou, escolha o mês da primeira parcela. As parcelas só são criadas de ${mesNome(desde)} em diante, os meses anteriores não mudam. Mudanças aqui valem para os meses ainda não abertos.</p></div>`;
+    <p class="nota" style="margin:0">Se a compra já começou, escolha o mês da primeira parcela. As parcelas só são criadas de ${mesNome(desde)} em diante, os meses anteriores não mudam. Mudanças aqui valem para os meses futuros ainda sem lançamentos.</p></div>`;
   const tipo=campo("Tipo",`<select name="tipo" id="selTipo"><option value="fixa" ${eParc?"":"selected"}>Fixa, repete todo mês</option><option value="parcelada" ${eParc?"selected":""}>Parcelada, termina após certo número de parcelas</option></select>`);
-  openDlg(id?(eParc?"Conta parcelada":"Conta recorrente"):(eParc?"Parcelar uma compra":"Nova conta recorrente"),"Entra automaticamente em cada mês novo.",
+  openDlg(id?(eParc?"Conta parcelada":"Conta recorrente"):(eParc?"Parcelar uma compra":"Nova conta recorrente"),"Entra automaticamente em todos os meses futuros.",
     tipo+formConta(c?Object.assign({},c,{valor:c.valorPadrao}):null,eParc?LBL_PARC:LBL_FIXA,extra),
     (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async(fd,act)=>{
       if(act==="del"){
-        const msg=c?.parcelas?"Parar de gerar as próximas parcelas? As parcelas dos meses já abertos continuam.":"Parar de gerar esta conta nos próximos meses?";
+        const msg=c?.parcelas?"Parar de gerar as próximas parcelas? As parcelas dos meses que já têm lançamentos continuam.":"Parar de gerar esta conta nos próximos meses?";
         if(!confirm(msg))return false;await q(S.sb.from("contas_recorrentes").delete().eq("grupo_id",gid()).eq("id",id));toast("Conta removida dos próximos meses.");return}
       const base=lerConta(fd);if(!base)return false;const v=parseBRL(fd.get("valor")||"0");
       const parc=fd.get("tipo")==="parcelada";
@@ -957,7 +955,7 @@ function dlgTpl(id,parcelado){
       await q(S.sb.from("contas_recorrentes").upsert(reg));
       let n=0;
       if(parc)n=await completarParcelas({id:rid,nome:base.nome,dia:base.dia,regra:base.regra,pct:base.pct,valorPadrao:reg.valor_padrao,parcelas,inicio},desde);
-      toast(parc?(n?"Parcelamento salvo. "+n+(n===1?" parcela lançada":" parcelas lançadas")+" nos meses abertos.":"Parcelamento salvo."):"Conta recorrente salva.");
+      toast(parc?(n?"Parcelamento salvo. "+n+(n===1?" parcela lançada":" parcelas lançadas")+" nos meses que já tinham lançamentos.":"Parcelamento salvo."):"Conta recorrente salva.");
     });
   bindRegra();
   $("#selTipo").addEventListener("change",e=>{
@@ -978,21 +976,61 @@ function dlgMoradores(){
 }
 
 /* ---------- ações ---------- */
+/* Linhas de contas de um mês, a partir dos modelos de Ajustes. Contas fixas copiam o valor do mês base (ou o valor padrão);
+   parcelas entram só nos meses do parcelamento, com o valor exato. */
+function contasDoMes(id,base){
+  const out=[];
+  for(const t of S.config.contas||[]){
+    const comum={conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null};
+    if(t.parcelas){
+      const n=parcelaDoMes(t,id);if(!n)continue;
+      out.push(Object.assign(comum,{valor:t.valorPadrao||0,estimado:false,parcela:n,parcelas:t.parcelas}));
+    }else out.push(Object.assign(comum,{valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
+  }
+  return out;
+}
+/* Meses futuros aparecem sem precisar abrir: são previsões calculadas na tela e só viram registro no banco quando alguém lança algo neles. */
+function projetar(){
+  const reais=Object.keys(S.meses).sort();
+  if(!reais.length)return;
+  const ult=reais[reais.length-1],base=S.meses[ult],ini=ult>hojeId()?ult:hojeId();
+  let fim=somaMeses(ini,12);
+  for(const t of S.config.contas||[])if(t.parcelas&&t.inicio){const f=somaMeses(t.inicio,t.parcelas-1);if(f>fim)fim=f}
+  const teto=somaMeses(ini,120);if(fim>teto)fim=teto;
+  for(let id=nextId(ult);id<=fim;id=nextId(id)){
+    const contas={};
+    contasDoMes(id,base).forEach(l=>{contas[l.conta_id]={nome:l.nome,dia:l.dia,regra:l.regra,pct:l.pct,valor:l.valor,estimado:l.estimado,parcela:l.parcela||null,parcelas:l.parcelas||null}});
+    S.meses[id]={rendas:base.rendas||{},contas,virtual:true};
+  }
+}
+async function criarMes(id,base){
+  await q(S.sb.from("meses").upsert({grupo_id:gid(),id,rendas:base?.rendas||{}},{onConflict:"grupo_id,id",ignoreDuplicates:true}));
+  const linhas=contasDoMes(id,base).map(l=>Object.assign({grupo_id:gid(),mes_id:id},l));
+  if(linhas.some(l=>"parcela" in l))linhas.forEach(l=>{if(!("parcela" in l)){l.parcela=null;l.parcelas=null}});
+  if(linhas.length)await q(S.sb.from("contas_mes").upsert(linhas,{onConflict:"grupo_id,mes_id,conta_id",ignoreDuplicates:true}));
+}
+/* Antes de gravar qualquer coisa num mês previsto, grava o mês (e os que faltam até ele). */
+async function garantirMes(mesId){
+  mesId=mesId||S.mesId;
+  if(!S.meses[mesId]?.virtual)return;
+  await carregar();
+  if(!S.meses[mesId]?.virtual)return;
+  const reais=Object.keys(S.meses).filter(x=>!S.meses[x].virtual).sort();
+  let base=S.meses[reais[reais.length-1]],id=reais[reais.length-1];
+  while(id<mesId){
+    id=nextId(id);
+    await criarMes(id,base);
+    const contas={};contasDoMes(id,base).forEach(l=>{contas[l.conta_id]=l});
+    base={rendas:base.rendas,contas};
+  }
+  await carregar();
+}
+/* Só para o primeiro mês de um grupo (não há previsão sem um mês anterior). */
 async function abrirMes(novoId){
   await carregar();
-  if(!S.meses[novoId]){
-    const ids=Object.keys(S.meses).sort().filter(x=>x<novoId),base=ids.length?S.meses[ids[ids.length-1]]:null;
-    await q(S.sb.from("meses").insert({grupo_id:gid(),id:novoId,rendas:base?.rendas||{}}));
-    const linhas=[];
-    for(const t of S.config.contas||[]){
-      const comum={grupo_id:gid(),mes_id:novoId,conta_id:t.id,nome:t.nome,dia:t.dia,regra:t.regra,pct:t.pct||null};
-      if(t.parcelas){
-        const n=parcelaDoMes(t,novoId);if(!n)continue;
-        linhas.push(Object.assign(comum,{valor:t.valorPadrao||0,estimado:false,parcela:n,parcelas:t.parcelas}));
-      }else linhas.push(Object.assign(comum,{valor:base?.contas?.[t.id]?.valor??t.valorPadrao??0,estimado:true}));
-    }
-    if(linhas.some(l=>"parcela" in l))linhas.forEach(l=>{if(!("parcela" in l)){l.parcela=null;l.parcelas=null}});
-    if(linhas.length)await q(S.sb.from("contas_mes").insert(linhas));
+  if(!S.meses[novoId]||S.meses[novoId].virtual){
+    const ids=Object.keys(S.meses).filter(x=>!S.meses[x].virtual&&x<novoId).sort(),base=ids.length?S.meses[ids[ids.length-1]]:null;
+    await criarMes(novoId,base);
     toast(mesNome(novoId)+" aberto.");
   }
   S.mesId=novoId;await carregar();window.scrollTo(0,0);
@@ -1004,7 +1042,7 @@ async function delPag(id){
 function exportCSV(){
   const qt=v=>`"${String(v??"").replace(/"/g,'""')}"`,n=c=>((c||0)/100).toFixed(2).replace(".",",");
   const L=["tipo;mes;data;conta;pessoa;para;valor;regra;estimado;obs;parcela"];
-  for(const id of Object.keys(S.meses).sort()){
+  for(const id of Object.keys(S.meses).filter(x=>!S.meses[x].virtual).sort()){
     const m=S.meses[id];
     for(const c of Object.values(m.contas||{}))L.push(["conta",id,"",qt(c.nome),"","",n(c.valor),qt(regraTxt(c)),c.estimado?"sim":"não","",c.parcela?c.parcela+"/"+c.parcelas:""].join(";"));
     for(const g of S.todosPags.filter(p=>p.mes===id))L.push([g.tipo==="conta"?"pagamento":"transferencia",id,g.data,qt(g.tipo==="conta"?m.contas?.[g.contaId]?.nome:""),qt(nomeDe(g.tipo==="conta"?g.quem:g.de)),qt(g.para?nomeDe(g.para):""),n(g.valor),"","",qt(g.obs),""].join(";"));
@@ -1063,7 +1101,7 @@ $("#fab").onclick=()=>dlgNovo();
 $("#mais").onclick=()=>{const m=$("#maismenu");m.hidden=!m.hidden;$("#mais").setAttribute("aria-expanded",String(!m.hidden))};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fecharMais()});
 $("#prev").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i>0){S.mesId=ids[i-1];render()}};
-$("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<0)return;if(i<ids.length-1){S.mesId=ids[i+1];render()}else dlgAbrirProx()};
+$("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<0)return;if(i<ids.length-1){S.mesId=ids[i+1];render()}};
 
 document.addEventListener("toggle",e=>{
   const d=e.target;if(!d.matches||!d.matches("details.sec"))return;
