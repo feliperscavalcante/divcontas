@@ -207,7 +207,7 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 "use strict";
 const CFG=window.CONTAS_CONFIG||{};
 const S={sb:null,session:null,admin:false,status:"loading",grupos:[],membros:[],grupoId:null,mesGrupo:null,
-  config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null,seq:0};
+  config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null,modoLogin:"senha",seq:0};
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const fmt=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
 const brl=c=>fmt.format((c||0)/100);
@@ -374,15 +374,24 @@ function render(){
   if(S.tab==="mes")renderMes();else renderHist();
 }
 function renderLogin(){
-  if(S.enviado){app.innerHTML=`<div class="estado"><h2>Confira seu e-mail</h2><p>Enviamos um link de acesso para <strong>${esc(S.enviado)}</strong>. Abra o link neste mesmo aparelho e navegador.</p><button class="link" data-a="voltarlogin">Usar outro e-mail</button></div>`;return}
-  app.innerHTML=`<div class="estado"><form class="login" id="fLogin"><h2>Contas da casa</h2><p style="margin:0">Entre com o seu e-mail. Você recebe um link de acesso, sem senha.</p>
-    <label class="campo"><span>E-mail</span><input type="email" name="email" required autocomplete="email"></label>
-    <button class="btn">Receber link de acesso</button></form></div>`;
+  if(S.enviado){app.innerHTML=`<div class="estado"><h2>Confira seu e-mail</h2><p>Enviamos um link de acesso para <strong>${esc(S.enviado)}</strong>. Abra o link neste mesmo aparelho e navegador. Ao entrar, você poderá definir uma senha.</p><button class="link" data-a="voltarlogin">Voltar</button></div>`;return}
+  const link=S.modoLogin==="link";
+  app.innerHTML=`<div class="estado"><form class="login" id="fLogin"><h2>Contas da casa</h2>
+    <p style="margin:0">${link?"Informe o seu e-mail. Você recebe um link de acesso e, depois de entrar, define uma senha para os próximos acessos.":"Entre com o seu e-mail e a sua senha."}</p>
+    <label class="campo"><span>E-mail</span><input type="email" name="email" required autocomplete="username" value="${esc(S.emailLogin||"")}"></label>
+    ${link?"":`<label class="campo"><span>Senha</span><input type="password" name="senha" required autocomplete="current-password"></label>`}
+    <button class="btn">${link?"Receber link de acesso":"Entrar"}</button>
+    <p style="margin:6px 0 0"><button type="button" class="link" data-a="modologin">${link?"Já tenho senha":"Primeiro acesso ou esqueci a senha"}</button></p></form></div>`;
   $("#fLogin").addEventListener("submit",async e=>{
-    e.preventDefault();const b=e.target.querySelector("button");b.disabled=true;
-    const email=new FormData(e.target).get("email").trim();
-    try{await q(S.sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}}));S.enviado=email;render()}
-    catch(err){erro(err);b.disabled=false}
+    e.preventDefault();const b=e.target.querySelector("button.btn");b.disabled=true;
+    const fd=new FormData(e.target),email=String(fd.get("email")).trim();S.emailLogin=email;
+    try{
+      if(link){await q(S.sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}}));S.enviado=email;render()}
+      else await q(S.sb.auth.signInWithPassword({email,password:String(fd.get("senha"))}));
+    }catch(err){
+      if(!link&&/invalid login credentials/i.test(String(err?.message||""))){toast("E-mail ou senha incorretos. Se ainda não definiu uma senha, use \"Primeiro acesso\".")}
+      else erro(err);
+      b.disabled=false}
   });
 }
 function renderSemAcesso(){
@@ -527,7 +536,7 @@ function renderAjustes(){
       <p><strong>${esc(g.nome)}</strong></p>
       <div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="renomear">Renomear</button><button class="btn small ghost" data-a="novogrupo">Novo grupo</button><button class="btn small danger" data-a="excluirgrupo">Excluir grupo</button></div></div></section>`;
   }
-  h+=`<section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}${S.admin?", administrador":""}.</p><button class="btn small ghost" data-a="sair">Sair</button></div></section>`;
+  h+=`<section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}${S.admin?", administrador":""}.</p><div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="senha">${S.session?.user?.user_metadata?.senha_definida?"Alterar senha":"Definir senha"}</button><button class="btn small ghost" data-a="sair">Sair</button></div></div></section>`;
   app.innerHTML=h;
 }
 
@@ -657,6 +666,28 @@ function dlgTransf(de,para,v,mesId){
       if(fd.get("de")===fd.get("para")){toast("Escolha pessoas diferentes.");return false}
       await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
+}
+function dlgSenha(primeira){
+  openDlg(primeira?"Defina uma senha":(S.session?.user?.user_metadata?.senha_definida?"Alterar senha":"Definir senha"),
+    primeira?"Com uma senha você entra só com e-mail e senha, sem precisar do link por e-mail.":"Use pelo menos 8 caracteres.",
+    campo("Nova senha",`<input name="s1" type="password" required minlength="8" autocomplete="new-password">`)+campo("Repita a senha",`<input name="s2" type="password" required minlength="8" autocomplete="new-password">`),
+    (primeira?`<button class="btn ghost" value="cancel" formnovalidate>Agora não</button>`:cancelar)+`<button class="btn" value="ok">Salvar senha</button>`,
+    async fd=>{
+      const a=String(fd.get("s1")||""),b=String(fd.get("s2")||"");
+      if(a.length<8){toast("Use pelo menos 8 caracteres.");return false}
+      if(a!==b){toast("As senhas não conferem.");return false}
+      const r=await S.sb.auth.updateUser({password:a,data:{senha_definida:true}});
+      if(r.error){if(/same|different/i.test(String(r.error.message))){toast("Escolha uma senha diferente da atual.");return false}throw r.error}
+      if(r.data?.user&&S.session)S.session.user=r.data.user;
+      toast("Senha salva. Da próxima vez, entre com e-mail e senha.");
+      if(S.tab==="ajustes")render();
+    });
+  if(primeira){try{localStorage.setItem("senha_adiada_"+S.session?.user?.id,String(Date.now()))}catch(e){}}
+}
+function sugerirSenha(){
+  const u=S.session?.user;if(!u||u.user_metadata?.senha_definida)return;
+  try{const t=Number(localStorage.getItem("senha_adiada_"+u.id)||0);if(t&&Date.now()-t<7*864e5)return}catch(e){}
+  dlgSenha(true);
 }
 function dlgAbrirProx(){
   const prox=nextId(S.mesId);
@@ -871,6 +902,8 @@ document.addEventListener("click",async e=>{
       else if(a==="recarregar"){S.status="loading";render();await entrar(S.session)}
       else if(a==="sair"){await S.sb.auth.signOut();location.reload()}
       else if(a==="voltarlogin"){S.enviado=null;render()}
+      else if(a==="modologin"){const f=$("#fLogin");if(f)S.emailLogin=String(new FormData(f).get("email")||"").trim();S.modoLogin=S.modoLogin==="link"?"senha":"link";render()}
+      else if(a==="senha"){dlgSenha(false)}
     }catch(err){erro(err)}finally{if(a==="abrir"&&b.isConnected)b.disabled=false}
     return;
   }
@@ -905,6 +938,7 @@ async function entrar(session){
     S.admin=adm.length>0;
     await carregar();
     ouvirMudancas();
+    if(S.session)setTimeout(sugerirSenha,400);
   }catch(err){erro(err);S.status="erro";render()}
 }
 async function init(){
