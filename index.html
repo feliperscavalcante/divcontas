@@ -185,6 +185,24 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .pend li button:hover{background:var(--surface)}
 .pend li button small{display:block;color:var(--muted);font-size:12px}
 .nota{overflow-wrap:anywhere}
+.top .gbar .wrap{position:relative}
+.top .gbar .gbtn{max-width:calc(100% - 120px)}
+.avatar{position:absolute;right:16px;top:0;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-weight:800;font-size:15px;cursor:pointer;display:grid;place-items:center}
+.avatar:hover{border-color:var(--ink)}
+.avatar.grande{position:static;width:48px;height:48px;font-size:20px;flex:none;background:var(--sunk);cursor:default}
+.conta-info{display:flex;align-items:center;gap:12px;margin:4px 0 14px}
+.conta-acts{display:grid;gap:8px;margin:0 0 14px}
+.conta-acts .btn{width:100%}
+.conta-info strong{display:block;overflow-wrap:anywhere}
+.conta-info small{color:var(--muted);font-size:14px}
+details.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;min-height:24px}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary h2{font-family:var(--display);font-weight:700;font-size:19px;margin:0;letter-spacing:-.01em}
+details.sec>summary .meta{margin-left:auto;color:var(--muted);font-size:14px;text-align:right}
+details.sec>summary::after{content:"\25BE";color:var(--muted);font-size:15px;flex:none}
+details.sec[open]>summary::after{content:"\25B4"}
+details.sec[open]>summary{margin-bottom:10px}
+details.sec>summary:hover{border-color:var(--ink)}
 </style>
 </head>
 <body>
@@ -193,7 +211,7 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
   <h1 id="titulo">Contas da casa</h1>
   <button class="iconbtn" id="next" aria-label="Próximo mês">›</button>
 </div>
-<div class="gbar" id="gbar" hidden><div class="wrap"><button class="gbtn" id="gbtn" type="button"></button></div></div></header>
+<div class="gbar" id="gbar" hidden><div class="wrap"><button class="gbtn" id="gbtn" type="button"></button><button class="avatar" id="conta" type="button" data-a="minhaconta" aria-label="Minha conta e sair" aria-haspopup="dialog" title="Minha conta"></button></div></div></header>
 <main class="wrap" id="app"><div class="estado">Carregando…</div></main>
 <nav class="tabs" aria-label="Seções"><div class="wrap">
   <button data-tab="mes" aria-current="page">Mês</button>
@@ -206,8 +224,9 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 (function(){
 "use strict";
 const CFG=window.CONTAS_CONFIG||{};
+function lerSec(){const o={contas:false,mov:false};try{for(const k in o)o[k]=localStorage.getItem("sec_"+k)==="1"}catch(e){}return o}
 const S={sb:null,session:null,admin:false,status:"loading",grupos:[],membros:[],grupoId:null,mesGrupo:null,
-  config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null,modoLogin:"senha",seq:0};
+  config:null,meses:{},todosPags:[],mesId:null,tab:"mes",enviado:null,modoLogin:"senha",seq:0,sec:lerSec()};
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const fmt=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
 const brl=c=>fmt.format((c||0)/100);
@@ -354,7 +373,7 @@ function render(){
   const gbar=$("#gbar");
   if(mostraAbas){
     const interativo=S.grupos.length>1||S.admin;
-    gbar.hidden=false;$("#gbtn").textContent=g.nome+(interativo?" ▾":"");$("#gbtn").disabled=!interativo;
+    gbar.hidden=false;$("#conta").textContent=inicial();$("#gbtn").textContent=g.nome+(interativo?" ▾":"");$("#gbtn").disabled=!interativo;
   }else gbar.hidden=true;
   const membro=mostraAbas&&souMembro()&&pessoas().length>0;
   const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=mostraAbas&&S.tab==="mes"&&membro;
@@ -476,14 +495,16 @@ function renderMes(){
       <button class="x" data-a="delpag" data-id="${esc(g.id)}" aria-label="Excluir movimento">×</button></li>`;
   }).join("");
   const isUlt=S.mesId===ids[ids.length-1],prox=nextId(S.mesId);
+  const nPend=r.contas.filter(c=>c.status==="pendente"||c.status==="parcial").length;
+  const resumoContas=r.contas.length?r.contas.length+(r.contas.length===1?" conta":" contas")+(nPend?", "+nPend+(nPend===1?" em aberto":" em aberto"):", todas pagas"):"nenhuma conta";
   app.innerHTML=`<div class="hero">${hero}${acts}</div>
   ${htmlPendencias()}
   <div class="balanca">${pes}<div class="rendas"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div>
-  <section><div class="sec-h"><h2>Contas</h2><span class="meta num">${r.rendaTotal?pctf(r.total/r.rendaTotal)+" da renda do grupo":""}</span></div>
+  <section><details class="sec" data-sec="contas" ${S.sec.contas?"open":""}><summary><h2>Contas</h2><span class="meta num">${resumoContas}</span></summary>
     <ul class="lista">${lis||`<li class="vazio">Nenhuma conta neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
-    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></section>
-  <section><div class="sec-h"><h2>Movimentos</h2><span class="meta">${pags.length} ${pags.length===1?"registro":"registros"}</span></div>
-    <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma conta, registre aqui.</li>`}</ul></section>
+    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></details></section>
+  <section><details class="sec" data-sec="mov" ${S.sec.mov?"open":""}><summary><h2>Movimentos</h2><span class="meta num">${pags.length} ${pags.length===1?"registro":"registros"}</span></summary>
+    <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma conta, registre aqui.</li>`}</ul></details></section>
   ${isUlt?`<section style="text-align:center"><button class="btn ghost" data-a="abrir" data-id="${prox}">Abrir ${mesNome(prox)}</button>
     <p class="nota">As contas recorrentes entram com o valor deste mês, marcadas como estimadas até você confirmar.</p></section>`:""}`;
 }
@@ -667,6 +688,20 @@ function dlgTransf(de,para,v,mesId){
       await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
 }
+function dlgMinhaConta(){
+  const u=S.session?.user;if(!u)return;
+  const mor=meuMorador();
+  openDlg("Sua conta","",
+    `<div class="conta-info"><span class="avatar grande" aria-hidden="true">${esc(inicial())}</span><div><strong>${esc(u.email)}</strong><small>${S.admin?"Administrador":"Participante"}${mor&&nomeDe(mor)?" · "+esc(nomeDe(mor)):""}</small></div></div>
+     <div class="conta-acts"><button type="submit" class="btn ghost" value="senha" formnovalidate>${u.user_metadata?.senha_definida?"Alterar senha":"Definir senha"}</button><button type="submit" class="btn danger" value="sair" formnovalidate>Sair da conta</button></div>`,
+    `<button class="btn" value="cancel" formnovalidate autofocus>Fechar</button>`,
+    async(fd,act)=>{
+      if(act==="senha"){dlg.close();dlgSenha(false);return false}
+      if(act==="sair"){dlg.close();await S.sb.auth.signOut();location.reload();return false}
+      return false;
+    });
+}
+function inicial(){const e=String(S.session?.user?.email||"?").trim();return (e[0]||"?").toUpperCase()}
 function dlgSenha(primeira){
   openDlg(primeira?"Defina uma senha":(S.session?.user?.user_metadata?.senha_definida?"Alterar senha":"Definir senha"),
     primeira?"Com uma senha você entra só com e-mail e senha, sem precisar do link por e-mail.":"Use pelo menos 8 caracteres.",
@@ -904,6 +939,7 @@ document.addEventListener("click",async e=>{
       else if(a==="voltarlogin"){S.enviado=null;render()}
       else if(a==="modologin"){const f=$("#fLogin");if(f)S.emailLogin=String(new FormData(f).get("email")||"").trim();S.modoLogin=S.modoLogin==="link"?"senha":"link";render()}
       else if(a==="senha"){dlgSenha(false)}
+      else if(a==="minhaconta"){dlgMinhaConta()}
     }catch(err){erro(err)}finally{if(a==="abrir"&&b.isConnected)b.disabled=false}
     return;
   }
@@ -917,6 +953,11 @@ document.addEventListener("change",async e=>{
 $("#gbtn").onclick=()=>dlgGrupos();
 $("#prev").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i>0){S.mesId=ids[i-1];render()}};
 $("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<0)return;if(i<ids.length-1){S.mesId=ids[i+1];render()}else dlgAbrirProx()};
+
+document.addEventListener("toggle",e=>{
+  const d=e.target;if(!d.matches||!d.matches("details.sec"))return;
+  S.sec[d.dataset.sec]=d.open;try{localStorage.setItem("sec_"+d.dataset.sec,d.open?"1":"0")}catch(err){}
+},true);
 
 let toastT;
 function toast(msg){let el=$(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),3200)}
