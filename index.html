@@ -412,8 +412,8 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 function calc(mes,pags){
   const ps=pessoas(),rendas=mes.rendas||{};
   const rendaTotal=ps.reduce((a,p)=>a+(rendas[p.id]||0),0);
-  const devido={},pago={},pagoConta={};
-  ps.forEach(p=>{devido[p.id]=0;pago[p.id]=0});
+  const devido={},pago={},pagoConta={},devidoPago={};
+  ps.forEach(p=>{devido[p.id]=0;pago[p.id]=0;devidoPago[p.id]=0});
   for(const g of pags){
     if(g.tipo==="conta"){pago[g.quem]=(pago[g.quem]||0)+g.valor;pagoConta[g.contaId]=(pagoConta[g.contaId]||0)+g.valor}
     else if(g.tipo==="transferencia"){pago[g.de]=(pago[g.de]||0)+g.valor;pago[g.para]=(pago[g.para]||0)-g.valor}
@@ -424,16 +424,18 @@ function calc(mes,pags){
     const partes={};let acc=0;
     ps.forEach((p,i)=>{const v=i===ps.length-1?c.valor-acc:(sw?Math.round(c.valor*w[i]/sw):Math.round(c.valor/ps.length));partes[p.id]=v;acc+=v;devido[p.id]+=v});
     const pc=pagoConta[id]||0;
+    /* Só a parte já paga de cada despesa entra no acerto: quem pagou adiantou o dinheiro, e os outros devem a parte deles dessa quantia. */
+    if(c.valor>0&&pc>0){let ac=0;ps.forEach((p,i)=>{const v=i===ps.length-1?pc-ac:Math.round(pc*partes[p.id]/c.valor);devidoPago[p.id]+=v;ac+=v})}
     const status=c.valor<=0?"semvalor":pc>=c.valor?"pago":pc>0?"parcial":"pendente";
     return Object.assign({id},c,{partes,pagoConta:pc,status});
   }).sort((a,b)=>(a.dia-b.dia)||String(a.nome).localeCompare(b.nome));
   const total=contas.reduce((a,c)=>a+c.valor,0);
   const falta=contas.reduce((a,c)=>a+Math.max(0,c.valor-c.pagoConta),0);
-  const saldo={};ps.forEach(p=>saldo[p.id]=pago[p.id]-devido[p.id]);
+  const saldo={},resta={};ps.forEach(p=>{saldo[p.id]=pago[p.id]-devidoPago[p.id];resta[p.id]=pago[p.id]-devido[p.id]});
   let devedor=null,credor=null;
   ps.forEach(p=>{if(saldo[p.id]<0&&(!devedor||saldo[p.id]<saldo[devedor]))devedor=p.id;if(saldo[p.id]>0&&(!credor||saldo[p.id]>saldo[credor]))credor=p.id});
   const acerto=devedor&&credor?Math.min(-saldo[devedor],saldo[credor]):0;
-  return {ps,rendas,rendaTotal,contas,total,falta,devido,pago,saldo,devedor,credor,acerto};
+  return {ps,rendas,rendaTotal,contas,total,falta,devido,pago,saldo,resta,devedor,credor,acerto};
 }
 function prazo(c,mesId){
   if(c.status==="pago"||c.status==="semvalor")return null;
@@ -556,7 +558,7 @@ function renderMes(){
   }else hero=`<p class="acerto">Nenhuma despesa neste mês</p><p class="sub">Toque em + para adicionar uma despesa.</p>`;
   const pes=r.ps.map((p,i)=>{
     const dv=r.devido[p.id],pg=r.pago[p.id],rd=r.rendas[p.id]||0;
-    const w=dv>0?Math.min(100,Math.max(0,pg/dv*100)):0,s=r.saldo[p.id];
+    const w=dv>0?Math.min(100,Math.max(0,pg/dv*100)):0,s=r.resta[p.id];
     const sit=s>0?`a receber ${brl(s)}`:s<0?`falta ${brl(-s)}`:"em dia";
     return `<div class="pc" style="--c:${varCor(i)}">
       <span class="ico" aria-hidden="true">${esc((p.nome||"?")[0].toUpperCase())}</span><div class="pnome">${esc(p.nome)}</div>
