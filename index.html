@@ -324,7 +324,7 @@ const dataBR=iso=>{if(!iso)return"";const [y,m,d]=String(iso).slice(0,10).split(
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const EMAIL=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function parseBRL(str){let s=String(str??"").replace(/R\$|\s/g,"");if(!s)return NaN;if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");const n=Number(s);return isFinite(n)?Math.round(n*100):NaN}
-const toInput=c=>((c||0)/100).toFixed(2).replace(".",",");
+const toInput=c=>((c||0)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const slug=s=>(String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"conta")+"-"+Math.random().toString(36).slice(2,6);
 const slugSimples=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"casa";
 
@@ -436,8 +436,8 @@ function prazo(c,mesId){
   if(mesId>atual)return null;
   const diff=c.dia-hoje().getDate();
   if(diff<0)return{cls:"bad",txt:"Atrasada"};
-  if(diff===0)return{cls:"warn",txt:"Vence hoje"};
-  if(diff<=3)return{cls:"warn",txt:"Vence em "+diff+(diff===1?" dia":" dias")};
+  if(diff===0)return{cls:"warn",txt:"Pagar hoje"};
+  if(diff<=3)return{cls:"warn",txt:"Pagar em "+diff+(diff===1?" dia":" dias")};
   return null;
 }
 const STATUS={pago:["ok","Paga"],parcial:["warn","Parcial"],pendente:["","Pendente"],semvalor:["","Sem valor"]};
@@ -497,14 +497,14 @@ function renderSemAcesso(){
   <div class="hero-acts" style="justify-content:center"><button class="btn" data-a="recarregar">Verificar de novo</button><button class="btn ghost" data-a="sair">Entrar com outro e-mail</button></div></div>`;
 }
 function renderSemGrupo(){
-  app.innerHTML=`<div class="estado"><h2>Nenhum grupo ainda</h2><p>Crie o primeiro grupo de divisão de contas.</p><button class="btn" data-a="novogrupo">Criar grupo</button>
+  app.innerHTML=`<div class="estado"><h2>Nenhum grupo ainda</h2><p>Crie o primeiro grupo de divisão de despesas.</p><button class="btn" data-a="novogrupo">Criar grupo</button>
   <p style="margin-top:18px"><button class="link" data-a="sair">Sair</button></p></div>`;
 }
 function renderNaoMembro(){
   app.innerHTML=`<div class="estado"><h2>Você administra este grupo</h2><p>Seu e-mail não está entre as pessoas dele, por isso os valores ficam ocultos para você. Se quiser participar, adicione-se em Ajustes.</p><button class="btn" data-a="irajustes">Abrir ajustes</button></div>`;
 }
 function renderSemPessoas(){
-  app.innerHTML=`<div class="estado"><h2>Grupo sem pessoas</h2><p>${S.admin?"Adicione as pessoas que dividem as contas em Ajustes.":"Peça ao administrador para adicionar as pessoas deste grupo."}</p>${S.admin?`<button class="btn" data-a="irajustes">Abrir ajustes</button>`:""}</div>`;
+  app.innerHTML=`<div class="estado"><h2>Grupo sem pessoas</h2><p>${S.admin?"Adicione as pessoas que dividem as despesas em Ajustes.":"Peça ao administrador para adicionar as pessoas deste grupo."}</p>${S.admin?`<button class="btn" data-a="irajustes">Abrir ajustes</button>`:""}</div>`;
 }
 
 /* Contas em aberto e acerto pendente do mês anterior. Só informativo: não altera o cálculo do mês atual. */
@@ -521,9 +521,9 @@ function pendenciasAnteriores(){
 function htmlPendencias(){
   const p=pendenciasAnteriores();if(!p)return "";
   const partes=[];
-  if(p.contas.length)partes.push(`<span class="nb">${p.contas.length+(p.contas.length===1?" conta":" contas")} (${brl(p.total)})</span>`);
+  if(p.contas.length)partes.push(`<span class="nb">${p.contas.length+(p.contas.length===1?" despesa":" despesas")} (${brl(p.total)})</span>`);
   if(p.acerto)partes.push(`<span class="nb">acerto de ${brl(p.acerto.valor)}</span>`);
-  const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${p.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${c.parcela?esc(c.parcela)+", ":""}vence dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("")
+  const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${p.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${c.parcela?esc(c.parcela)+", ":""}pagamento dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("")
     +(p.acerto?`<li><button type="button" data-a="transfprev" data-mes="${p.mesId}" data-de="${esc(p.acerto.de)}" data-para="${esc(p.acerto.para)}" data-v="${p.acerto.valor}"><span>Acerto<small>${esc(nomeDe(p.acerto.de))} para ${esc(nomeDe(p.acerto.para))}</small></span><span class="num">${brl(p.acerto.valor)}</span></button></li>`:"");
   return `<details class="pend"><summary><span class="pt">Pendências de ${MESES[+p.mesId.slice(5)-1]}</span><span class="ps num">${partes.join(" e ")}</span></summary><ul>${itens}</ul></details>`;
 }
@@ -531,23 +531,23 @@ function htmlPendencias(){
 function renderMes(){
   const ids=Object.keys(S.meses).sort();
   if(!S.mesId||!S.meses[S.mesId]){
-    const dica=(S.config.contas||[]).length?"":`<p class="nota">Este grupo ainda não tem contas recorrentes. Cadastre em Ajustes antes de abrir o mês.</p>`;
-    app.innerHTML=`<div class="estado"><h2>Nenhum mês aberto</h2><p>Abra o mês para gerar as contas recorrentes.</p><button class="btn" data-a="abrir" data-id="${hojeId()}">Abrir ${mesNome(hojeId())}</button>${dica}</div>`;return;
+    const dica=(S.config.contas||[]).length?"":`<p class="nota">Este grupo ainda não tem despesas recorrentes. Cadastre em Ajustes antes de abrir o mês.</p>`;
+    app.innerHTML=`<div class="estado"><h2>Nenhum mês aberto</h2><p>Abra o mês para gerar as despesas recorrentes.</p><button class="btn" data-a="abrir" data-id="${hojeId()}">Abrir ${mesNome(hojeId())}</button>${dica}</div>`;return;
   }
   const mes=S.meses[S.mesId],pags=pagsMes(),r=calc(mes,pags);
   const pago=Math.max(0,r.total-r.falta);
-  const resumo=`<div class="resumo"><small>${r.falta>0?"Falta pagar":"Contas do mês"}</small><strong class="num">${brl(r.falta>0?r.falta:r.total)}</strong>
+  const resumo=`<div class="resumo"><small>${r.falta>0?"Falta pagar":"Despesas do mês"}</small><strong class="num">${brl(r.falta>0?r.falta:r.total)}</strong>
     <div class="rchips"><span class="rchip">Pago <b class="num">${brl(pago)}</b></span><span class="rchip">Total <b class="num">${brl(r.total)}</b></span></div></div>`;
   let hero;
   if(r.acerto>0){
     hero=`<p class="acerto"><span class="${corDe(r.devedor)}">${esc(nomeDe(r.devedor))}</span> transfere <span class="v num">${brl(r.acerto)}</span> para <span class="${corDe(r.credor)}">${esc(nomeDe(r.credor))}</span></p>
-    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em contas.`:"Todas as contas pagas. Só falta este acerto para fechar o mês."}</p>
+    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em despesas.`:"Todas as despesas pagas. Só falta este acerto para fechar o mês."}</p>
     <button class="btn" data-a="transf" data-de="${esc(r.devedor)}" data-para="${esc(r.credor)}" data-v="${r.acerto}">Registrar acerto</button>`;
   }else if(r.falta>0){
     hero=`<p class="acerto">Ninguém deve nada ao outro</p><p class="sub">Até aqui, o que foi pago está equilibrado.</p>`;
   }else if(r.contas.length){
-    hero=`<p class="acerto">Mês fechado</p><p class="sub">Contas pagas e acerto feito. Ninguém deve nada.</p>`;
-  }else hero=`<p class="acerto">Nenhuma conta neste mês</p><p class="sub">Toque em + para adicionar uma conta.</p>`;
+    hero=`<p class="acerto">Mês fechado</p><p class="sub">Despesas pagas e acerto feito. Ninguém deve nada.</p>`;
+  }else hero=`<p class="acerto">Nenhuma despesa neste mês</p><p class="sub">Toque em + para adicionar uma despesa.</p>`;
   const pes=r.ps.map((p,i)=>{
     const dv=r.devido[p.id],pg=r.pago[p.id],rd=r.rendas[p.id]||0;
     const w=dv>0?Math.min(100,Math.max(0,pg/dv*100)):0,s=r.saldo[p.id];
@@ -571,22 +571,22 @@ function renderMes(){
       </span></span></button></li>`;
   }).join("");
   const movs=pags.slice().sort((a,b)=>String(b.data).localeCompare(String(a.data))).map(g=>{
-    const t=g.tipo==="conta"?`${esc(nomeDe(g.quem))} pagou ${esc(mes.contas?.[g.contaId]?.nome||"conta")}`:`${esc(nomeDe(g.de))} transferiu para ${esc(nomeDe(g.para))}`;
+    const t=g.tipo==="conta"?`${esc(nomeDe(g.quem))} pagou ${esc(mes.contas?.[g.contaId]?.nome||"despesa")}`:`${esc(nomeDe(g.de))} transferiu para ${esc(nomeDe(g.para))}`;
     return `<li class="mov"><span><span class="t">${t}</span><br><span class="d">${dataBR(g.data)}${g.obs?", "+esc(g.obs):""}</span></span><span class="num">${brl(g.valor)}</span>
       <button class="x" data-a="delpag" data-id="${esc(g.id)}" aria-label="Excluir movimento">×</button></li>`;
   }).join("");
   const nPend=r.contas.filter(c=>c.status==="pendente"||c.status==="parcial").length;
-  const resumoContas=r.contas.length?r.contas.length+(r.contas.length===1?" conta":" contas")+(nPend?", "+nPend+(nPend===1?" em aberto":" em aberto"):", todas pagas"):"nenhuma conta";
-  const prev=mes.virtual?`<p class="nota previsao">Previsão. Nada foi lançado neste mês ainda: as contas fixas usam o valor do último mês e as parcelas entram com o valor combinado. Ao registrar um pagamento ou editar algo aqui, o mês passa a valer.</p>`:"";
+  const resumoContas=r.contas.length?r.contas.length+(r.contas.length===1?" despesa":" despesas")+(nPend?", "+nPend+(nPend===1?" em aberto":" em aberto"):", todas pagas"):"nenhuma despesa";
+  const prev=mes.virtual?`<p class="nota previsao">Previsão. Nada foi lançado neste mês ainda: as despesas fixas usam o valor do último mês e as parcelas entram com o valor combinado. Ao registrar um pagamento ou editar algo aqui, o mês passa a valer.</p>`:"";
   app.innerHTML=`${resumo}${prev}
   ${htmlPendencias()}
   <div class="status">${hero}</div>
   <section style="margin-top:14px"><div class="pgrid">${pes}</div><div class="rendas"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div></section>
-  <section><details class="sec" data-sec="contas" ${S.sec.contas?"open":""}><summary><h2>Contas</h2><span class="meta num">${resumoContas}</span></summary>
-    <ul class="lista">${lis||`<li class="vazio">Nenhuma conta neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
-    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></details></section>
+  <section><details class="sec" data-sec="contas" ${S.sec.contas?"open":""}><summary><h2>Despesas</h2><span class="meta num">${resumoContas}</span></summary>
+    <ul class="lista">${lis||`<li class="vazio">Nenhuma despesa neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
+    <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar despesa só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></details></section>
   <section><details class="sec" data-sec="mov" ${S.sec.mov?"open":""}><summary><h2>Movimentos</h2><span class="meta num">${pags.length} ${pags.length===1?"registro":"registros"}</span></summary>
-    <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma conta, registre aqui.</li>`}</ul></details></section>
+    <ul class="lista">${movs||`<li class="vazio">Nada registrado ainda. Quando alguém pagar uma despesa, registre aqui.</li>`}</ul></details></section>
 `;
 }
 function renderHist(){
@@ -604,13 +604,13 @@ function renderHist(){
     const conf=vals.slice(0,-1).filter(v=>v&&!v.estimado&&v.valor>0).map(v=>v.valor);
     const last=vals[vals.length-1];let varTd="<td>sem base</td>";
     if(last&&conf.length&&last.valor>0){const media=conf.reduce((a,b)=>a+b,0)/conf.length;const d=(last.valor-media)/media;varTd=`<td class="${d>0.1?"up":d<-0.1?"down":""}">${d>0?"+":""}${pctf(d)}</td>`}
-    return `<tr><td>${esc(nomes[cid])}</td>${vals.map(v=>`<td class="num">${v?brl(v.valor)+(v.estimado?"*":""):"sem conta"}</td>`).join("")}${varTd}</tr>`;
+    return `<tr><td>${esc(nomes[cid])}</td>${vals.map(v=>`<td class="num">${v?brl(v.valor)+(v.estimado?"*":""):"sem despesa"}</td>`).join("")}${varTd}</tr>`;
   }).join("");
   app.innerHTML=`<section><div class="sec-h"><h2>Total por mês</h2></div><ul class="lista">${rows}</ul></section>
-  <section><div class="sec-h"><h2>Por conta</h2></div>
-  <div class="tblwrap"><table><thead><tr><th>Conta</th>${ult.map(id=>`<th>${mesCurto(id)}</th>`).join("")}<th>Último x média</th></tr></thead><tbody class="num">${linhas}</tbody></table></div>
+  <section><div class="sec-h"><h2>Por despesa</h2></div>
+  <div class="tblwrap"><table><thead><tr><th>Despesa</th>${ult.map(id=>`<th>${mesCurto(id)}</th>`).join("")}<th>Último x média</th></tr></thead><tbody class="num">${linhas}</tbody></table></div>
   <p class="nota">* valor estimado. A última coluna compara o mês mais recente com a média dos meses anteriores já confirmados. Vermelho indica alta de mais de 10%.</p></section>
-  <section><div class="card"><p><strong>Exportar dados</strong></p><p>Gera um arquivo CSV com todas as contas e movimentos, que abre no Excel ou no Google Planilhas.</p><button class="btn small" data-a="csv">Baixar CSV</button></div></section>`;
+  <section><div class="card"><p><strong>Exportar dados</strong></p><p>Gera um arquivo CSV com todas as despesas e movimentos, que abre no Excel ou no Google Planilhas.</p><button class="btn small" data-a="csv">Baixar CSV</button></div></section>`;
 }
 function renderAjustes(){
   const g=grupoAtual(),ps=pessoas(),cs=(S.config?.contas||[]).slice().sort((a,b)=>a.dia-b.dia),membro=souMembro();
@@ -618,14 +618,14 @@ function renderAjustes(){
   h+=`<section><div class="sec-h"><h2>Pessoas</h2>${ps.length?`<button class="link" data-a="moradores">Editar nomes</button>`:""}</div>
     <div class="card">${ps.map((p,i)=>`<p><strong style="color:${varCor(i)}">${esc(p.nome)}</strong></p>`).join("")||`<p>Nenhuma pessoa cadastrada.</p>`}</div></section>`;
   if(membro){
-    h+=`<section><div class="sec-h"><h2>Contas recorrentes</h2><span><button class="link" data-a="tpl">Adicionar</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar</button></span></div>
+    h+=`<section><div class="sec-h"><h2>Despesas recorrentes</h2><span><button class="link" data-a="tpl">Adicionar</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar</button></span></div>
     <ul class="lista">${cs.map(c=>{
       const fim=c.parcelas&&c.inicio?somaMeses(c.inicio,c.parcelas-1):null;
       const sub=fim?`${regraTxt(c)} · ${c.parcelas}x de ${brl(c.valorPadrao)}, ${mesCurto(c.inicio)} a ${mesCurto(fim)}`:regraTxt(c);
       return `<li><button class="conta" data-a="tpl" data-id="${esc(c.id)}">
       <span class="dia num"><span><small>dia</small>${String(c.dia).padStart(2,"0")}</span></span>
-      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${sub}</span></span>${fim&&fim<hojeId()?`<span class="chip ok">Concluída</span>`:"<span></span>"}</button></li>`}).join("")||`<li class="vazio">Nenhuma conta recorrente. Adicione aluguel, luz e as demais contas fixas.</li>`}</ul>
-    <p class="nota">Mudanças aqui valem para os meses futuros ainda sem lançamentos. Para mudar um mês que já tem lançamentos, toque na conta dentro dele.</p></section>`;
+      <span><span class="nm">${esc(c.nome)}</span><br><span class="rg">${sub}</span></span>${fim&&fim<hojeId()?`<span class="chip ok">Concluída</span>`:"<span></span>"}</button></li>`}).join("")||`<li class="vazio">Nenhuma despesa recorrente. Adicione aluguel, luz e as demais despesas fixas.</li>`}</ul>
+    <p class="nota">Mudanças aqui valem para os meses futuros ainda sem lançamentos. Para mudar um mês que já tem lançamentos, toque na despesa dentro dele.</p></section>`;
   }
   if(S.admin){
     const ms=membrosDoGrupo().slice().sort((a,b)=>a.email.localeCompare(b.email));
@@ -633,7 +633,7 @@ function renderAjustes(){
     <ul class="lista">${ms.map(m=>`<li class="pr"><div><span class="em">${esc(m.email)}</span>
       <select data-vinculo="${esc(m.email)}" aria-label="Pessoa da divisão para ${esc(m.email)}"><option value="">Sem vínculo com a divisão</option>${ps.map(p=>`<option value="${esc(p.id)}" ${p.id===m.morador_id?"selected":""}>${esc(p.nome)}</option>`).join("")}</select></div>
       <button class="x" data-a="rmmembro" data-email="${esc(m.email)}" aria-label="Remover acesso de ${esc(m.email)}">×</button></li>`).join("")||`<li class="vazio">Ninguém tem acesso a este grupo.</li>`}</ul>
-    <p class="nota">Cada e-mail entra no app pelo link de acesso e passa a ver este grupo. O vínculo indica quem é essa pessoa na divisão das contas.</p></section>
+    <p class="nota">Cada e-mail entra no app pelo link de acesso e passa a ver este grupo. O vínculo indica quem é essa pessoa na divisão das despesas.</p></section>
     <section><div class="sec-h"><h2>Este grupo</h2></div><div class="card">
       <p><strong>${esc(g.nome)}</strong></p>
       <div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="renomear">Renomear</button><button class="btn small ghost" data-a="novogrupo">Novo grupo</button><button class="btn small danger" data-a="excluirgrupo">Excluir grupo</button></div></div></section>`;
@@ -660,7 +660,7 @@ dlg.addEventListener("click",e=>{if(e.target===dlg)dlg.close()});
 const cancelar=`<button class="btn ghost" value="cancel" formnovalidate>Cancelar</button>`;
 const optP=sel=>pessoas().map(p=>`<option value="${esc(p.id)}" ${p.id===sel?"selected":""}>${esc(p.nome)}</option>`).join("");
 const campo=(label,inner)=>`<label class="campo"><span>${label}</span>${inner}</label>`;
-const valInput=(name,c)=>`<input name="${name}" inputmode="decimal" required value="${c!=null?toInput(c):""}" placeholder="0,00">`;
+const valInput=(name,c)=>`<input name="${name}" type="text" inputmode="numeric" data-money autocomplete="off" required value="${c!=null?toInput(c):""}" placeholder="0,00">`;
 function needVal(v){if(!(v>0)){toast("Informe um valor maior que zero.");return false}return true}
 const gid=()=>S.grupoId;
 
@@ -677,7 +677,7 @@ function dlgGrupos(){
 function dlgNovoGrupo(){
   if(!S.admin)return;
   const bloco=(n,email)=>`<div class="duo">${campo("Pessoa "+n+": nome",`<input name="n${n}" required maxlength="30">`)}${campo("Pessoa "+n+": e-mail",`<input name="e${n}" type="email" required value="${esc(email)}" autocomplete="off">`)}</div>`;
-  openDlg("Novo grupo","Cada grupo tem as próprias contas, pessoas e acessos. Você pode adicionar mais pessoas depois, em Ajustes.",
+  openDlg("Novo grupo","Cada grupo tem as próprias despesas, pessoas e acessos. Você pode adicionar mais pessoas depois, em Ajustes.",
     campo("Nome do grupo",`<input name="nome" required maxlength="40" placeholder="Ex.: Apartamento Centro">`)+bloco(1,emailMeu())+bloco(2,""),
     cancelar+`<button class="btn" value="ok">Criar grupo</button>`,
     async fd=>{
@@ -691,7 +691,7 @@ function dlgNovoGrupo(){
         await q(S.sb.from("moradores").insert(mor));
         await q(S.sb.from("grupo_membros").insert(pe.map((p,i)=>({grupo_id:g.id,email:p.email,morador_id:mor[i].id}))));
       }catch(err){await S.sb.from("grupos").delete().eq("id",g.id);throw err}
-      S.grupoId=g.id;salvarGrupo(g.id);S.tab="ajustes";toast("Grupo criado. Cadastre as contas recorrentes.");
+      S.grupoId=g.id;salvarGrupo(g.id);S.tab="ajustes";toast("Grupo criado. Cadastre as despesas recorrentes.");
     });
 }
 function dlgRenomear(){
@@ -702,7 +702,7 @@ function dlgRenomear(){
 }
 function dlgExcluirGrupo(){
   const g=grupoAtual();
-  openDlg("Excluir grupo","Isto apaga o grupo, as contas, os pagamentos e os acessos. Não dá para desfazer.",
+  openDlg("Excluir grupo","Isto apaga o grupo, as despesas, os pagamentos e os acessos. Não dá para desfazer.",
     campo("Para confirmar, digite o nome do grupo: <strong>"+esc(g.nome)+"</strong>",`<input name="conf" required autocomplete="off">`),
     cancelar+`<button class="btn danger" value="ok">Excluir grupo</button>`,
     async fd=>{
@@ -712,7 +712,7 @@ function dlgExcluirGrupo(){
     });
 }
 function dlgAddPessoa(){
-  openDlg("Adicionar pessoa","A pessoa entra no app com este e-mail, por link de acesso, e passa a ver o grupo. Atenção: ela também passa a dividir os meses já abertos. Em grupos com histórico, prefira adicionar antes de lançar contas.",
+  openDlg("Adicionar pessoa","A pessoa entra no app com este e-mail, por link de acesso, e passa a ver o grupo. Atenção: ela também passa a dividir os meses já abertos. Em grupos com histórico, prefira adicionar antes de lançar despesas.",
     campo("Nome",`<input name="nome" required maxlength="30">`)+campo("E-mail",`<input name="email" type="email" required autocomplete="off">`)+
     `<p class="nota" style="margin:0">Endereço do app para enviar à pessoa: <strong style="word-break:break-all">${esc(location.origin+location.pathname)}</strong></p>`,
     cancelar+`<button class="btn" value="ok">Adicionar</button>`,
@@ -728,7 +728,7 @@ function dlgAddPessoa(){
     });
 }
 async function removerAcesso(email){
-  if(!confirm("Remover o acesso de "+email+" a este grupo? As contas e pagamentos continuam no grupo."))return;
+  if(!confirm("Remover o acesso de "+email+" a este grupo? As despesas e pagamentos continuam no grupo."))return;
   await q(S.sb.from("grupo_membros").delete().eq("grupo_id",gid()).eq("email",email));
   toast("Acesso removido.");await carregar();
 }
@@ -742,10 +742,10 @@ function dlgPagar(contaId,mesId){
   const mes=S.meses[mesId],r=calc(mes,S.todosPags.filter(p=>p.mes===mesId));
   const ordem=r.contas.slice().sort((a,b)=>(a.status==="pago")-(b.status==="pago"));
   const sel=contaId||ordem.find(c=>c.status!=="pago")?.id||ordem[0]?.id;
-  if(!sel){toast("Adicione uma conta antes.");return}
+  if(!sel){toast("Adicione uma despesa antes.");return}
   const rest=id=>{const c=r.contas.find(x=>x.id===id);return c?Math.max(0,c.valor-c.pagoConta)||c.valor:0};
-  openDlg("Registrar pagamento",mesId===S.mesId?"Quem pagou a conta direto ao fornecedor.":"Conta de "+mesNome(mesId)+". O pagamento fica registrado nesse mês.",
-    campo("Conta",`<select name="conta" id="selConta">${ordem.map(c=>`<option value="${esc(c.id)}" ${c.id===sel?"selected":""}>${esc(c.nome)} (${brl(c.valor)})${c.status==="pago"?", já paga":""}</option>`).join("")}</select>`)+
+  openDlg("Registrar pagamento",mesId===S.mesId?"Quem pagou a despesa direto ao fornecedor.":"Despesa de "+mesNome(mesId)+". O pagamento fica registrado nesse mês.",
+    campo("Despesa",`<select name="conta" id="selConta">${ordem.map(c=>`<option value="${esc(c.id)}" ${c.id===sel?"selected":""}>${esc(c.nome)} (${brl(c.valor)})${c.status==="pago"?", já paga":""}</option>`).join("")}</select>`)+
     `<div class="duo">${campo("Quem pagou",`<select name="quem">${optP(meuMorador()||pessoas()[0]?.id)}</select>`)}${campo("Valor (R$)",valInput("valor",rest(sel)))}</div>`+
     `<div class="duo">${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}${campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional">`)}</div>`,
     cancelar+`<button class="btn" value="ok">Registrar</button>`,
@@ -760,7 +760,7 @@ function dlgPagar(contaId,mesId){
 function dlgTransf(de,para,v,mesId){
   mesId=mesId||S.mesId;
   const ps=pessoas();de=de||meuMorador()||ps[0]?.id;para=para||ps.find(p=>p.id!==de)?.id;
-  openDlg("Registrar transferência",mesId===S.mesId?"Dinheiro que um passou para o outro para acertar as contas.":"Acerto de "+mesNome(mesId)+". A transferência fica registrada nesse mês.",
+  openDlg("Registrar transferência",mesId===S.mesId?"Dinheiro que um passou para o outro para acertar as despesas.":"Acerto de "+mesNome(mesId)+". A transferência fica registrada nesse mês.",
     `<div class="duo">${campo("De",`<select name="de">${optP(de)}</select>`)}${campo("Para",`<select name="para">${optP(para)}</select>`)}</div>`+
     `<div class="duo">${campo("Valor (R$)",valInput("valor",v||null))}${campo("Data",`<input type="date" name="data" required value="${hojeISO()}">`)}</div>`+
     campo("Observação",`<input name="obs" maxlength="80" placeholder="opcional, ex.: Pix">`),
@@ -792,9 +792,9 @@ function atualizarDrawer(g){
 }
 function dlgNovo(){
   openDlg("Adicionar","",`<div class="sheet">
-    <button type="submit" class="sheetopt" value="pagar" formnovalidate>Registrar pagamento<small>Alguém pagou uma conta</small></button>
+    <button type="submit" class="sheetopt" value="pagar" formnovalidate>Registrar pagamento<small>Alguém pagou uma despesa</small></button>
     <button type="submit" class="sheetopt" value="transf" formnovalidate>Transferência<small>Acerto de valores entre vocês</small></button>
-    <button type="submit" class="sheetopt" value="conta" formnovalidate>Nova conta neste mês<small>Vale só para ${esc(mesNome(S.mesId))}</small></button>
+    <button type="submit" class="sheetopt" value="conta" formnovalidate>Nova despesa neste mês<small>Vale só para ${esc(mesNome(S.mesId))}</small></button>
     <button type="submit" class="sheetopt" value="parc" formnovalidate>Parcelar uma compra<small>Se repete pelos próximos meses</small></button></div>`,
     `<button class="btn ghost" value="cancel" formnovalidate>Fechar</button>`,
     async(fd,act)=>{dlg.close();if(act==="pagar")dlgPagar();else if(act==="transf")dlgTransf(undefined,undefined,null);else if(act==="conta")dlgEditConta(null);else if(act==="parc")dlgTpl(null,true);return false});
@@ -830,25 +830,33 @@ function sugerirSenha(){
 function dlgConta(id){
   const mes=S.meses[S.mesId],r=calc(mes,pagsMes()),c=r.contas.find(x=>x.id===id);if(!c)return;
   const pg=pagsMes().filter(g=>g.tipo==="conta"&&g.contaId===id);
-  openDlg(esc(c.nome),`Vence dia ${c.dia}, dividida ${regraTxt(c)}${c.parcela?", "+parcelaTxt(c):""}${c.estimado?". Valor ainda estimado":""}.`,
+  openDlg(esc(c.nome),`Pagamento dia ${c.dia}, dividida ${regraTxt(c)}${c.parcela?", "+parcelaTxt(c):""}${c.estimado?". Valor ainda estimado":""}.`,
     `<div class="det num"><div><span>Valor</span><strong>${brl(c.valor)}</strong></div>${r.ps.map(p=>`<div><span>Parte de ${esc(p.nome)}</span><span>${brl(c.partes[p.id])}</span></div>`).join("")}
      <div><span>Pago até agora</span><span>${brl(c.pagoConta)}</span></div></div>
      ${pg.length?`<div class="det">${pg.map(g=>`<div><span>${dataBR(g.data)}, ${esc(nomeDe(g.quem))}</span><span class="num">${brl(g.valor)}</span></div>`).join("")}</div>`:""}`,
     `<button class="btn ghost esq" value="edit">Editar</button><button class="btn ghost" value="cancel" formnovalidate>Fechar</button>${c.status!=="pago"?`<button class="btn" value="pay">Registrar pagamento</button>`:""}`,
     async(fd,act)=>{dlg.close();if(act==="pay")dlgPagar(id);else if(act==="edit")dlgEditConta(id);return false});
 }
-function formConta(c,valorLabel,extra){
+function campoDia(c,mesId){
+  if(mesId){
+    const ult=new Date(+mesId.slice(0,4),+mesId.slice(5),0).getDate();
+    const d0=c?.dia?Math.min(c.dia,ult):(hojeId()===mesId?hoje().getDate():1);
+    return campo("Data pagamento",`<input name="data_pag" type="date" required min="${mesId}-01" max="${mesId}-${String(ult).padStart(2,"0")}" value="${mesId}-${String(d0).padStart(2,"0")}">`);
+  }
+  return campo("Data pagamento (dia do mês)",`<input name="dia" type="number" min="1" max="31" required inputmode="numeric" placeholder="1 a 31" value="${c?.dia||""}">`);
+}
+function formConta(c,valorLabel,extra,mesId){
   const ps=pessoas(),reg=c?.regra||"igual";
-  return `<div class="duo">${campo("Nome",`<input name="nome" required maxlength="40" value="${esc(c?.nome||"")}">`)}${campo("Dia do vencimento",`<input name="dia" type="number" min="1" max="31" required value="${c?.dia||""}">`)}</div>`+
-  `<label class="campo"><span id="lblValor">${valorLabel||"Valor (R$)"}</span><input name="valor" inputmode="decimal" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00"></label>`+
+  return `<div class="duo">${campo("Nome",`<input name="nome" required maxlength="40" value="${esc(c?.nome||"")}">`)}${campoDia(c,mesId)}</div>`+
+  `<label class="campo"><span id="lblValor">${valorLabel||"Valor (R$)"}</span><input name="valor" type="text" inputmode="numeric" data-money autocomplete="off" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00"></label>`+
   (extra||"")+
-  campo("Divisão",`<select name="regra" id="selRegra"><option value="igual" ${reg==="igual"?"selected":""}>${ps.length===2?"Meio a meio":"Partes iguais"}</option><option value="proporcional" ${reg==="proporcional"?"selected":""}>Proporcional à renda</option><option value="custom" ${reg==="custom"?"selected":""}>Percentual combinado</option></select>`)+
-  `<div id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>`<div class="duo">${campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="any" inputmode="decimal" value="${Math.round((c?.pct?.[p.id]??(100/ps.length))*10000)/10000}">`)}${campo("R$ de "+esc(p.nome),`<input name="rs_${esc(p.id)}" inputmode="decimal" placeholder="0,00" autocomplete="off">`)}</div>`).join("")}<p class="nota" id="pctHint"></p></div>`;
+  campo("Divisão",`<select name="regra" id="selRegra"><option value="igual" ${reg==="igual"?"selected":""}>${ps.length===2?"Meio a meio":"Partes iguais"}</option><option value="proporcional" ${reg==="proporcional"?"selected":""}>Proporcional à renda</option><option value="custom" ${reg==="custom"?"selected":""}>Digitar valor</option></select>`)+
+  `<div id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>`<div class="duo">${campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="any" inputmode="decimal" value="${Math.round((c?.pct?.[p.id]??(100/ps.length))*10000)/10000}">`)}${campo("R$ de "+esc(p.nome),`<input name="rs_${esc(p.id)}" type="text" inputmode="numeric" data-money placeholder="0,00" autocomplete="off">`)}</div>`).join("")}<p class="nota" id="pctHint"></p></div>`;
 }
 function lerConta(fd){
   const ps=pessoas(),regra=fd.get("regra");let pct=null;
   if(regra==="custom"){pct={};let s=0;ps.forEach(p=>{pct[p.id]=Number(fd.get("pct_"+p.id))||0;s+=pct[p.id]});if(ps.some(p=>pct[p.id]<0)){toast("Os percentuais não podem ser negativos.");return null}if(Math.abs(s-100)>0.01){toast("Os percentuais precisam somar 100%.");return null}}
-  const dia=Math.min(31,Math.max(1,parseInt(fd.get("dia"))||1));
+  const dp=String(fd.get("data_pag")||""),dia=Math.min(31,Math.max(1,dp?parseInt(dp.slice(8,10))||1:parseInt(fd.get("dia"))||1));
   return {nome:String(fd.get("nome")).trim().toLowerCase(),dia,regra,pct};
 }
 function bindRegra(){
@@ -859,7 +867,7 @@ function bindRegra(){
   const cents=(id,t)=>Math.round(t*pv(id)/100);
   function dica(alvo){
     const t=T();
-    $("#pctHint").textContent=!ps.length?"":t>0?(alvo?"Digite em % ou em R$. O restante vai para "+alvo.nome+": "+fp(pv(alvo.id))+"% (R$ "+toInput(cents(alvo.id,t))+").":"Digite em % ou em R$."):"Para digitar em reais, informe antes o valor da conta. Por enquanto vale o percentual.";
+    $("#pctHint").textContent=!ps.length?"":t>0?(alvo?"Digite em % ou em R$. O restante vai para "+alvo.nome+": "+fp(pv(alvo.id))+"% (R$ "+toInput(cents(alvo.id,t))+").":"Digite em % ou em R$."):"Para digitar em reais, informe antes o valor da despesa. Por enquanto vale o percentual.";
   }
   function tudo(){const t=T();ps.forEach(p=>{R(p.id).disabled=t<=0;R(p.id).value=t>0?toInput(cents(p.id,t)):""});dica(null)}
   function resto(from){
@@ -879,27 +887,27 @@ function bindRegra(){
 }
 function dlgEditConta(id){
   const mes=S.meses[S.mesId],c=id?mes.contas[id]:null;
-  openDlg(id?"Editar conta do mês":"Nova conta neste mês",id?"A mudança vale só para "+mesNome(S.mesId)+".":"Para repetir todo mês, cadastre em Ajustes.",
-    formConta(c)+(id&&c.estimado?`<label class="check"><input type="checkbox" name="conf" checked> Valor confirmado pela fatura</label>`:""),
+  openDlg(id?"Editar despesa do mês":"Nova despesa neste mês",id?"A mudança vale só para "+mesNome(S.mesId)+".":"Para repetir todo mês, cadastre em Ajustes.",
+    formConta(c,null,"",S.mesId)+(id&&c.estimado?`<label class="check"><input type="checkbox" name="conf" checked> Valor confirmado pela fatura</label>`:""),
     (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async(fd,act)=>{
       if(act==="del"){
         await garantirMes(S.mesId);
-        if(pagsMes().some(g=>g.contaId===id)){toast("Exclua antes os pagamentos desta conta.");return false}
-        if(!confirm("Remover esta conta de "+mesNome(S.mesId)+"?"))return false;
-        await q(S.sb.from("contas_mes").delete().eq("grupo_id",gid()).eq("mes_id",S.mesId).eq("conta_id",id));toast("Conta removida.");return;
+        if(pagsMes().some(g=>g.contaId===id)){toast("Exclua antes os pagamentos desta despesa.");return false}
+        if(!confirm("Remover esta despesa de "+mesNome(S.mesId)+"?"))return false;
+        await q(S.sb.from("contas_mes").delete().eq("grupo_id",gid()).eq("mes_id",S.mesId).eq("conta_id",id));toast("Despesa removida.");return;
       }
       const base=lerConta(fd);if(!base)return false;
       const v=parseBRL(fd.get("valor")||"0");if(isNaN(v)||v<0){toast("Valor inválido.");return false}
       await garantirMes(S.mesId);
       await q(S.sb.from("contas_mes").upsert(Object.assign({grupo_id:gid(),mes_id:S.mesId,conta_id:id||slug(base.nome)},base,{valor:v,estimado:id?(c.estimado&&!fd.get("conf")):false})));
-      toast("Conta salva.");
+      toast("Despesa salva.");
     });
   bindRegra();
 }
 function dlgRendas(){
   const mes=S.meses[S.mesId];
-  openDlg("Rendas de "+mesNome(S.mesId),"Usadas nas contas divididas pela renda. Os meses futuros ainda não editados usam estes valores.",
+  openDlg("Rendas de "+mesNome(S.mesId),"Usadas nas despesas divididas pela renda. Os meses futuros ainda não editados usam estes valores.",
     pessoas().map(p=>campo(esc(p.nome)+" (R$)",valInput("r_"+p.id,mes.rendas?.[p.id]||0))).join(""),
     cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async fd=>{const rendas={};for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
@@ -933,13 +941,13 @@ function dlgTpl(id,parcelado){
     <div class="duo">${campo("Número de parcelas",`<input name="parcelas" type="number" min="2" max="120" step="1" inputmode="numeric" value="${c?.parcelas||""}" placeholder="Ex.: 10">`)}${campo("Primeira parcela em",`<select name="inicio">${opcoesMeses(c?.inicio||desde)}</select>`)}</div>
     <p class="nota" style="margin:0">Se a compra já começou, escolha o mês da primeira parcela. As parcelas só são criadas de ${mesNome(desde)} em diante, os meses anteriores não mudam. Mudanças aqui valem para os meses futuros ainda sem lançamentos.</p></div>`;
   const tipo=campo("Tipo",`<select name="tipo" id="selTipo"><option value="fixa" ${eParc?"":"selected"}>Fixa, repete todo mês</option><option value="parcelada" ${eParc?"selected":""}>Parcelada, termina após certo número de parcelas</option></select>`);
-  openDlg(id?(eParc?"Conta parcelada":"Conta recorrente"):(eParc?"Parcelar uma compra":"Nova conta recorrente"),"Entra automaticamente em todos os meses futuros.",
+  openDlg(id?(eParc?"Despesa parcelada":"Despesa recorrente"):(eParc?"Parcelar uma compra":"Nova despesa recorrente"),"Entra automaticamente em todos os meses futuros.",
     tipo+formConta(c?Object.assign({},c,{valor:c.valorPadrao}):null,eParc?LBL_PARC:LBL_FIXA,extra),
     (id?`<button class="btn danger esq" value="del" formnovalidate>Remover</button>`:"")+cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async(fd,act)=>{
       if(act==="del"){
-        const msg=c?.parcelas?"Parar de gerar as próximas parcelas? As parcelas dos meses que já têm lançamentos continuam.":"Parar de gerar esta conta nos próximos meses?";
-        if(!confirm(msg))return false;await q(S.sb.from("contas_recorrentes").delete().eq("grupo_id",gid()).eq("id",id));toast("Conta removida dos próximos meses.");return}
+        const msg=c?.parcelas?"Parar de gerar as próximas parcelas? As parcelas dos meses que já têm lançamentos continuam.":"Parar de gerar esta despesa nos próximos meses?";
+        if(!confirm(msg))return false;await q(S.sb.from("contas_recorrentes").delete().eq("grupo_id",gid()).eq("id",id));toast("Despesa removida dos próximos meses.");return}
       const base=lerConta(fd);if(!base)return false;const v=parseBRL(fd.get("valor")||"0");
       const parc=fd.get("tipo")==="parcelada";
       let parcelas=null,inicio=null;
@@ -955,7 +963,7 @@ function dlgTpl(id,parcelado){
       await q(S.sb.from("contas_recorrentes").upsert(reg));
       let n=0;
       if(parc)n=await completarParcelas({id:rid,nome:base.nome,dia:base.dia,regra:base.regra,pct:base.pct,valorPadrao:reg.valor_padrao,parcelas,inicio},desde);
-      toast(parc?(n?"Parcelamento salvo. "+n+(n===1?" parcela lançada":" parcelas lançadas")+" nos meses que já tinham lançamentos.":"Parcelamento salvo."):"Conta recorrente salva.");
+      toast(parc?(n?"Parcelamento salvo. "+n+(n===1?" parcela lançada":" parcelas lançadas")+" nos meses que já tinham lançamentos.":"Parcelamento salvo."):"Despesa recorrente salva.");
     });
   bindRegra();
   $("#selTipo").addEventListener("change",e=>{
@@ -1041,10 +1049,10 @@ async function delPag(id){
 }
 function exportCSV(){
   const qt=v=>`"${String(v??"").replace(/"/g,'""')}"`,n=c=>((c||0)/100).toFixed(2).replace(".",",");
-  const L=["tipo;mes;data;conta;pessoa;para;valor;regra;estimado;obs;parcela"];
+  const L=["tipo;mes;data;despesa;pessoa;para;valor;regra;estimado;obs;parcela"];
   for(const id of Object.keys(S.meses).filter(x=>!S.meses[x].virtual).sort()){
     const m=S.meses[id];
-    for(const c of Object.values(m.contas||{}))L.push(["conta",id,"",qt(c.nome),"","",n(c.valor),qt(regraTxt(c)),c.estimado?"sim":"não","",c.parcela?c.parcela+"/"+c.parcelas:""].join(";"));
+    for(const c of Object.values(m.contas||{}))L.push(["despesa",id,"",qt(c.nome),"","",n(c.valor),qt(regraTxt(c)),c.estimado?"sim":"não","",c.parcela?c.parcela+"/"+c.parcelas:""].join(";"));
     for(const g of S.todosPags.filter(p=>p.mes===id))L.push([g.tipo==="conta"?"pagamento":"transferencia",id,g.data,qt(g.tipo==="conta"?m.contas?.[g.contaId]?.nome:""),qt(nomeDe(g.tipo==="conta"?g.quem:g.de)),qt(g.para?nomeDe(g.para):""),n(g.valor),"","",qt(g.obs),""].join(";"));
   }
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L.join("\n")],{type:"text/csv;charset=utf-8"}));
@@ -1107,6 +1115,15 @@ document.addEventListener("toggle",e=>{
   const d=e.target;if(!d.matches||!d.matches("details.sec"))return;
   S.sec[d.dataset.sec]=d.open;try{localStorage.setItem("sec_"+d.dataset.sec,d.open?"1":"0")}catch(err){}
 },true);
+
+/* Campos de valor: só se digitam dígitos; os dois últimos são os centavos (5, 50, 500 viram 0,05, 0,50 e 5,00). O cursor fica sempre no fim. */
+function mascaraMoeda(el){
+  const d=el.value.replace(/\D/g,"").slice(0,12),c=d?Number(d):0;
+  el.value=c>0?toInput(c):"";
+}
+function cursorNoFim(el){try{const n=el.value.length;el.setSelectionRange(n,n)}catch(e){}}
+document.addEventListener("input",e=>{const el=e.target;if(el&&el.matches&&el.matches("[data-money]")){mascaraMoeda(el);cursorNoFim(el)}},true);
+["focusin","click","pointerup","touchend"].forEach(ev=>document.addEventListener(ev,e=>{const el=e.target;if(el&&el.matches&&el.matches("[data-money]"))setTimeout(()=>cursorNoFim(el),0)}));
 
 let toastT;
 function toast(msg){let el=$(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),3200)}
