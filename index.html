@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Contas da casa</title>
-<meta name="theme-color" content="#EAF0EC">
+<meta name="theme-color" content="#0B0B0C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
@@ -13,35 +13,37 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("tema")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
 <style>
 :root{
-  --bg:#EAF0EC; --surface:#FFFFFF; --sunk:#F3F7F4; --ink:#13302A; --muted:#566C65; --line:#D2DDD7;
-  --p0:#A3245F; --p1:#1A6683;
-  --warn:#8A5A00; --warn-bg:#FBEBC0; --ok:#256B43; --ok-bg:#D8EEDF; --bad:#A8201A; --bad-bg:#F9DEDA;
-  --btn:#13302A; --btn-ink:#FFFFFF;
+  --bg:#0B0B0C; --surface:#161617; --sunk:#222224; --ink:#EEEEEF; --muted:#9B9BA1; --line:#2B2B2E;
+  --p0:#F08DBA; --p1:#78C8E6;
+  --warn:#F4C86A; --warn-bg:#2D2410; --ok:#74D69C; --ok-bg:#14301F; --bad:#F2918A; --bad-bg:#38201E;
+  --btn:#8AAEF5; --btn-ink:#0A1633; --accent:#8AAEF5;
   --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  color-scheme:dark;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0E1916; --surface:#15231F; --sunk:#1B2C27; --ink:#E3EEE9; --muted:#9AB1A9; --line:#2B3E38;
-    --p0:#EE86B4; --p1:#72C3E0;
-    --warn:#F3C766; --warn-bg:#3A3017; --ok:#78D3A0; --ok-bg:#1B3427; --bad:#F59A90; --bad-bg:#3E201D;
-    --btn:#E3EEE9; --btn-ink:#0E1916;
-  }
+:root[data-theme="light"]{
+  --bg:#F2F3F5; --surface:#FFFFFF; --sunk:#EDEFF2; --ink:#14171C; --muted:#5C6570; --line:#E1E4E9;
+  --p0:#A3245F; --p1:#1A6683;
+  --warn:#7A4E00; --warn-bg:#FCEFC9; --ok:#1F6B40; --ok-bg:#D9F0E2; --bad:#A8201A; --bad-bg:#FBE1DE;
+  --btn:#2F62D6; --btn-ink:#FFFFFF; --accent:#2F62D6; color-scheme:light;
 }
-:root[data-theme="dark"]{
-  --bg:#0E1916; --surface:#15231F; --sunk:#1B2C27; --ink:#E3EEE9; --muted:#9AB1A9; --line:#2B3E38;
-  --p0:#EE86B4; --p1:#72C3E0;
-  --warn:#F3C766; --warn-bg:#3A3017; --ok:#78D3A0; --ok-bg:#1B3427; --bad:#F59A90; --bad-bg:#3E201D;
-  --btn:#E3EEE9; --btn-ink:#0E1916;
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"]{
+    --bg:#F2F3F5; --surface:#FFFFFF; --sunk:#EDEFF2; --ink:#14171C; --muted:#5C6570; --line:#E1E4E9;
+    --p0:#A3245F; --p1:#1A6683;
+    --warn:#7A4E00; --warn-bg:#FCEFC9; --ok:#1F6B40; --ok-bg:#D9F0E2; --bad:#A8201A; --bad-bg:#FBE1DE;
+    --btn:#2F62D6; --btn-ink:#FFFFFF; --accent:#2F62D6; color-scheme:light;
+  }
 }
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:84px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:104px}
 button,input,select,textarea{font:inherit;color:inherit}
 .num{font-variant-numeric:tabular-nums}
 .wrap{max-width:620px;margin:0 auto;padding:0 16px}
@@ -66,10 +68,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn.small{padding:7px 13px;font-size:14px}
 .btn.danger{background:transparent;color:var(--bad);border:1.5px solid var(--bad)}
 .link{background:none;border:0;padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:14px}
-:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 
 /* balança por pessoa */
-.balanca{display:grid;gap:14px;padding:18px;background:var(--surface);border-radius:18px;border:1px solid var(--line)}
+.balanca{display:grid;gap:14px;padding:18px;background:var(--surface);border-radius:22px;border:1px solid var(--line)}
 .pessoa-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .pessoa-top .nome{font-family:var(--display);font-weight:700;font-size:18px;color:var(--c)}
 .pessoa-top .parte{font-weight:700}
@@ -85,7 +87,7 @@ section{margin-top:28px}
 .sec-h .meta{color:var(--muted);font-size:14px;text-align:right}
 
 /* lista de contas */
-.lista{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.lista{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden}
 .lista li+li{border-top:1px solid var(--line)}
 .conta{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;width:100%;padding:13px 14px;background:none;border:0;text-align:left;cursor:pointer}
 .conta:hover{background:var(--sunk)}
@@ -113,7 +115,7 @@ section{margin-top:28px}
 .hist-row{display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:center;padding:12px 14px}
 .hbar{height:12px;border-radius:6px;background:var(--sunk);overflow:hidden;border:1px solid var(--line)}
 .hbar span{display:block;height:100%;background:var(--ink);opacity:.75}
-.tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:22px}
 table{border-collapse:collapse;width:100%;font-size:14px;min-width:460px}
 th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left;text-transform:capitalize;position:sticky;left:0;background:var(--surface)}
@@ -122,22 +124,16 @@ td.up{color:var(--bad)} td.down{color:var(--ok)}
 .nota{font-size:14px;color:var(--muted);margin:10px 2px 0}
 
 /* ajustes */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:16px}
 .card p{margin:0 0 10px}
 .card p:last-child{margin-bottom:0}
 
-/* abas */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabs .wrap{display:grid;grid-template-columns:repeat(3,1fr);height:62px}
-.tabs button{background:none;border:0;cursor:pointer;font-weight:700;color:var(--muted);font-size:15px;position:relative}
-.tabs button[aria-current="page"]{color:var(--ink)}
-.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--ink)}
 
 .aviso{margin-top:14px;padding:12px 14px;border-radius:14px;background:var(--warn-bg);color:var(--warn);font-size:14px}
 
 /* diálogo */
 dialog{border:0;padding:0;border-radius:22px;width:min(520px,calc(100vw - 24px));max-height:calc(100% - 32px);background:var(--surface);color:var(--ink)}
-dialog::backdrop{background:rgba(10,25,20,.45)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
 .dlg{padding:22px 20px 18px;display:grid;gap:14px}
 .dlg h3{margin:0;font-family:var(--display);font-size:22px;letter-spacing:-.01em}
 .dlg .desc{margin:-6px 0 0;color:var(--muted);font-size:14px}
@@ -152,14 +148,11 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .det{display:grid;gap:6px;padding:12px;border-radius:12px;background:var(--sunk);font-size:15px}
 .det div{display:flex;justify-content:space-between;gap:8px}
 
-.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--btn);color:var(--btn-ink);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:20;max-width:calc(100vw - 32px)}
+.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:20;max-width:calc(100vw - 32px)}
 .estado{padding:60px 8px;text-align:center;color:var(--muted)}
 .login{max-width:380px;margin:0 auto;text-align:left;display:grid;gap:12px}
 .estado h2{font-family:var(--display);color:var(--ink);margin:0 0 8px}
 @media (prefers-reduced-motion:no-preference){ .barra span{transition:width .4s ease} }
-.top .gbar .wrap{height:auto;padding-top:0;padding-bottom:8px;justify-content:center}
-.gbtn{background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:6px 16px;font-weight:700;font-size:14px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gbtn:disabled{cursor:default}
 .glist{display:grid;gap:8px}
 .gopt{width:100%;text-align:left;padding:14px;border-radius:14px;border:1.5px solid var(--line);background:var(--sunk);cursor:pointer;font-weight:700}
 .gopt[aria-current="true"]{border-color:var(--ink);background:var(--surface)}
@@ -185,17 +178,7 @@ dialog::backdrop{background:rgba(10,25,20,.45)}
 .pend li button:hover{background:var(--surface)}
 .pend li button small{display:block;color:var(--muted);font-size:12px}
 .nota{overflow-wrap:anywhere}
-.top .gbar .wrap{position:relative}
-.top .gbar .gbtn{max-width:calc(100% - 120px)}
-.avatar{position:absolute;right:16px;top:0;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-weight:800;font-size:15px;cursor:pointer;display:grid;place-items:center}
-.avatar:hover{border-color:var(--ink)}
-.avatar.grande{position:static;width:48px;height:48px;font-size:20px;flex:none;background:var(--sunk);cursor:default}
-.conta-info{display:flex;align-items:center;gap:12px;margin:4px 0 14px}
-.conta-acts{display:grid;gap:8px;margin:0 0 14px}
-.conta-acts .btn{width:100%}
-.conta-info strong{display:block;overflow-wrap:anywhere}
-.conta-info small{color:var(--muted);font-size:14px}
-details.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;min-height:24px}
+details.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:22px;min-height:24px}
 details.sec>summary::-webkit-details-marker{display:none}
 details.sec>summary h2{font-family:var(--display);font-weight:700;font-size:19px;margin:0;letter-spacing:-.01em}
 details.sec>summary .meta{margin-left:auto;color:var(--muted);font-size:14px;text-align:right}
@@ -203,21 +186,117 @@ details.sec>summary::after{content:"\25BE";color:var(--muted);font-size:15px;fle
 details.sec[open]>summary::after{content:"\25B4"}
 details.sec[open]>summary{margin-bottom:10px}
 details.sec>summary:hover{border-color:var(--ink)}
+
+[hidden]{display:none!important}
+/* novo estilo: topo */
+.top{border-bottom:0;background:var(--bg)}
+.top .wrap{height:60px;gap:2px;position:relative}
+.top .mes{flex:1;display:flex;align-items:center;justify-content:center;gap:2px;min-width:0}
+.top h1{flex:0 1 auto;min-width:0;font-family:var(--body);font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top h1.mes-ativo{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
+.iconbtn.flat{border:0;background:transparent;width:44px;height:44px;flex:none;font-size:26px;color:var(--ink)}
+.iconbtn.flat:hover{background:var(--sunk)}
+.iconbtn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn svg circle{fill:currentColor;stroke:none}
+.gsub{text-align:center;font-size:12px;color:var(--muted);margin:-10px 0 4px}
+.pop{position:absolute;right:12px;top:54px;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:8}
+.pop button{display:block;width:100%;text-align:left;padding:12px 14px;border:0;background:transparent;border-radius:10px;font-weight:700;cursor:pointer;color:var(--ink)}
+.pop button:hover{background:var(--sunk)}
+
+/* resumo do mês */
+.resumo{display:grid;justify-items:center;gap:2px;padding:10px 0 6px;text-align:center}
+.resumo>small{color:var(--muted);font-size:15px}
+.resumo>strong{font-family:var(--display);font-weight:700;font-size:clamp(34px,10vw,46px);line-height:1.05;letter-spacing:-.02em;white-space:nowrap}
+.rchips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
+.rchip{background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--muted);white-space:nowrap}
+.rchip b{color:var(--ink);font-weight:700}
+.status{background:var(--surface);border-radius:24px;padding:20px 18px;text-align:center;margin-top:14px}
+.status .acerto{font-size:clamp(22px,6.2vw,30px);margin:0 0 8px}
+.status p.sub{margin:0;color:var(--muted)}
+.status .btn{margin-top:14px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.pc{background:var(--surface);border-radius:24px;padding:16px;display:grid;gap:3px;align-content:start;min-width:0}
+.pc .ico{width:40px;height:40px;border-radius:50%;background:var(--c);color:var(--bg);display:grid;place-items:center;font-weight:800;margin-bottom:6px}
+.pc .pnome{color:var(--c);font-weight:700}
+.pc .pval{font-family:var(--display);font-weight:700;font-size:24px;white-space:nowrap}
+.pc .psub{font-size:13px;color:var(--muted)}
+.pc .barra{margin:8px 0 6px}
+.rendas{margin-top:12px;background:var(--surface);border-radius:22px;padding:14px 16px;border-top:0}
+.pend{margin-top:14px}
+.balanca{margin-top:14px}
+
+/* botao flutuante */
+.fab{position:fixed;right:max(18px,calc((100vw - 620px)/2 + 18px));bottom:calc(20px + env(safe-area-inset-bottom,0px));width:62px;height:62px;border-radius:50%;border:0;background:var(--accent);color:var(--btn-ink);display:grid;place-items:center;box-shadow:0 8px 22px rgba(0,0,0,.5);cursor:pointer;z-index:6}
+.fab svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+.toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+.sheet{display:grid;gap:8px}
+.sheetopt{display:block;width:100%;padding:16px;border-radius:16px;border:0;background:var(--sunk);font-weight:700;font-size:16px;text-align:left;cursor:pointer;color:var(--ink)}
+.sheetopt small{display:block;font-weight:400;color:var(--muted);font-size:13px;margin-top:2px}
+.sheetopt:hover{outline:2px solid var(--accent)}
+
+/* menu lateral */
+dialog#drawer{margin:0;padding:0;inset:0 auto 0 0;height:100dvh;max-height:none;width:min(86vw,340px);border-radius:0 28px 28px 0;background:var(--bg);color:var(--ink);overflow-y:auto}
+dialog#drawer[open]{animation:slidein .2s ease-out}
+@keyframes slidein{from{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){dialog#drawer[open]{animation:none}}
+.dr{display:flex;flex-direction:column;min-height:100%;padding:calc(20px + env(safe-area-inset-top,0px)) 12px calc(14px + env(safe-area-inset-bottom,0px))}
+.dr:focus{outline:none}
+.dr-head{display:flex;gap:14px;align-items:center;padding:4px 8px 18px}
+.avatar{width:56px;height:56px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:22px;background:var(--surface);border:2px solid var(--accent);color:var(--ink)}
+.dr-id{min-width:0}
+.dr-id strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-id small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-block;margin-top:6px;padding:3px 12px;border-radius:999px;border:1px solid var(--warn);color:var(--warn);font-size:12px;font-weight:700}
+.dr-item{display:flex;align-items:center;gap:16px;width:100%;padding:14px 16px;border:0;border-radius:999px;background:transparent;font-weight:700;font-size:16px;text-align:left;cursor:pointer;color:var(--ink)}
+.dr-item:hover:not(:disabled){background:var(--sunk)}
+.dr-item[aria-current="page"]{background:var(--surface)}
+.dr-item:disabled{cursor:default;opacity:1}
+.dr-item svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dr-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-item .dr-chev{flex:none;color:var(--muted)}
+#gbtn:disabled .dr-chev{display:none}
+.dr-sec{margin:18px 16px 6px;color:var(--muted);font-size:14px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:0 4px;padding:4px;background:var(--surface);border-radius:999px}
+.seg button{border:0;background:transparent;padding:9px 4px;border-radius:999px;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--sunk);color:var(--ink)}
+.dr-foot{margin-top:auto;padding-top:14px}
+.dr-item.sair{color:var(--bad)}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <button class="iconbtn" id="prev" aria-label="Mês anterior">‹</button>
-  <h1 id="titulo">Contas da casa</h1>
-  <button class="iconbtn" id="next" aria-label="Próximo mês">›</button>
+  <button class="iconbtn flat" id="menu" type="button" aria-label="Abrir menu" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <div class="mes">
+    <button class="iconbtn flat" id="prev" aria-label="Mês anterior">‹</button>
+    <h1 id="titulo">Contas da casa</h1>
+    <button class="iconbtn flat" id="next" aria-label="Próximo mês">›</button>
+  </div>
+  <button class="iconbtn flat" id="mais" type="button" aria-label="Mais opções" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
 </div>
-<div class="gbar" id="gbar" hidden><div class="wrap"><button class="gbtn" id="gbtn" type="button"></button><button class="avatar" id="conta" type="button" data-a="minhaconta" aria-label="Minha conta e sair" aria-haspopup="dialog" title="Minha conta"></button></div></div></header>
+<div class="gsub" id="gsub" hidden></div>
+<div class="pop" id="maismenu" role="menu" hidden>
+  <button type="button" role="menuitem" data-a="hoje">Ir para o mês atual</button>
+  <button type="button" role="menuitem" data-a="rendas">Editar rendas</button>
+  <button type="button" role="menuitem" data-a="csv">Exportar CSV</button>
+</div></header>
 <main class="wrap" id="app"><div class="estado">Carregando…</div></main>
-<nav class="tabs" aria-label="Seções"><div class="wrap">
-  <button data-tab="mes" aria-current="page">Mês</button>
-  <button data-tab="hist">Histórico</button>
-  <button data-tab="ajustes">Ajustes</button>
-</div></nav>
+<button class="fab" id="fab" type="button" aria-label="Adicionar" aria-haspopup="dialog" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+<dialog id="drawer" aria-label="Menu"><div class="dr" tabindex="-1">
+  <div class="dr-head"><span class="avatar" id="avatar" aria-hidden="true"></span><div class="dr-id"><strong id="dnome"></strong><small id="demail"></small><span class="badge" id="dpapel"></span></div></div>
+  <nav aria-label="Seções">
+    <button type="button" class="dr-item" data-tab="mes" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Mês</span></button>
+    <button type="button" class="dr-item" data-tab="hist"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Histórico</span></button>
+    <button type="button" class="dr-item" data-tab="ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span>Ajustes</span></button>
+  </nav>
+  <p class="dr-sec">Grupo</p>
+  <button type="button" class="dr-item" id="gbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14.5c2.4 0 4 1.8 4 4.5"/></svg><span></span><span class="dr-chev" aria-hidden="true">▾</span></button>
+  <p class="dr-sec">Conta e dados</p>
+  <button type="button" class="dr-item" data-a="csv"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Exportar CSV</span></button>
+  <button type="button" class="dr-item" data-a="senha"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/></svg><span id="drsenha">Alterar senha</span></button>
+  <p class="dr-sec">Aparência</p>
+  <div class="seg" role="group" aria-label="Tema"><button type="button" data-tema="dark" aria-pressed="true">Escuro</button><button type="button" data-tema="light" aria-pressed="false">Claro</button><button type="button" data-tema="auto" aria-pressed="false">Auto</button></div>
+  <div class="dr-foot"><button type="button" class="dr-item sair" data-a="sairconf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/></svg><span>Sair da conta</span></button></div>
+</div></dialog>
 <dialog id="dlg"></dialog>
 
 <script>
@@ -368,18 +447,18 @@ function render(){
   const temAcesso=S.status==="ok"&&(S.grupos.length>0||S.admin);
   const g=grupoAtual();
   const mostraAbas=temAcesso&&!!g;
-  $(".tabs").style.display=mostraAbas?"":"none";
-  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
-  const gbar=$("#gbar");
-  if(mostraAbas){
-    const interativo=S.grupos.length>1||S.admin;
-    gbar.hidden=false;$("#conta").textContent=inicial();$("#gbtn").textContent=g.nome+(interativo?" ▾":"");$("#gbtn").disabled=!interativo;
-  }else gbar.hidden=true;
   const membro=mostraAbas&&souMembro()&&pessoas().length>0;
-  const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=mostraAbas&&S.tab==="mes"&&membro;
+  const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=mostraAbas&&S.tab==="mes"&&membro,temMes=!!(naMes&&S.mesId&&S.meses[S.mesId]);
+  $("#menu").style.visibility=mostraAbas?"visible":"hidden";
+  $("#mais").style.visibility=temMes?"visible":"hidden";
+  if(!temMes)fecharMais();
+  $("#fab").hidden=!temMes;
   $("#prev").disabled=!naMes||i<=0;$("#next").disabled=!naMes||i<0;
   $("#prev").style.visibility=$("#next").style.visibility=naMes?"visible":"hidden";
   $("#titulo").textContent=naMes&&S.mesId?mesNome(S.mesId):mostraAbas&&S.tab==="hist"?"Histórico":mostraAbas&&S.tab==="ajustes"?"Ajustes":"Contas da casa";
+  $("#titulo").classList.toggle("mes-ativo",!!(naMes&&S.mesId));
+  const gsub=$("#gsub");gsub.hidden=!(naMes&&g&&S.grupos.length>1);if(!gsub.hidden)gsub.textContent=g.nome;
+  atualizarDrawer(g);
 
   if(S.status==="config"){app.innerHTML=`<div class="estado"><h2>Falta configurar</h2><p>Crie no repositório um arquivo chamado <strong>config.js</strong> com a Project URL e a chave pública do Supabase.</p></div>`;return}
   if(S.status==="loading"){app.innerHTML=`<div class="estado">Carregando…</div>`;return}
@@ -456,27 +535,29 @@ function renderMes(){
     app.innerHTML=`<div class="estado"><h2>Nenhum mês aberto</h2><p>Abra o mês para gerar as contas recorrentes.</p><button class="btn" data-a="abrir" data-id="${hojeId()}">Abrir ${mesNome(hojeId())}</button>${dica}</div>`;return;
   }
   const mes=S.meses[S.mesId],pags=pagsMes(),r=calc(mes,pags);
+  const pago=Math.max(0,r.total-r.falta);
+  const resumo=`<div class="resumo"><small>${r.falta>0?"Falta pagar":"Contas do mês"}</small><strong class="num">${brl(r.falta>0?r.falta:r.total)}</strong>
+    <div class="rchips"><span class="rchip">Pago <b class="num">${brl(pago)}</b></span><span class="rchip">Total <b class="num">${brl(r.total)}</b></span></div></div>`;
   let hero;
   if(r.acerto>0){
     hero=`<p class="acerto"><span class="${corDe(r.devedor)}">${esc(nomeDe(r.devedor))}</span> transfere <span class="v num">${brl(r.acerto)}</span> para <span class="${corDe(r.credor)}">${esc(nomeDe(r.credor))}</span></p>
-    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em contas.`:"Todas as contas pagas. Só falta este acerto para fechar o mês."}</p>`;
+    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em contas.`:"Todas as contas pagas. Só falta este acerto para fechar o mês."}</p>
+    <button class="btn" data-a="transf" data-de="${esc(r.devedor)}" data-para="${esc(r.credor)}" data-v="${r.acerto}">Registrar acerto</button>`;
   }else if(r.falta>0){
-    hero=`<p class="acerto">Faltam <span class="v num">${brl(r.falta)}</span> em contas</p><p class="sub">Ninguém deve nada ao outro até aqui.</p>`;
+    hero=`<p class="acerto">Ninguém deve nada ao outro</p><p class="sub">Até aqui, o que foi pago está equilibrado.</p>`;
   }else if(r.contas.length){
-    hero=`<p class="acerto">Mês fechado. Ninguém deve nada.</p><p class="sub">Contas pagas e acerto feito.</p>`;
-  }else hero=`<p class="acerto">Nenhuma conta neste mês</p>`;
-  const acts=`<div class="hero-acts">
-    ${r.acerto>0?`<button class="btn" data-a="transf" data-de="${esc(r.devedor)}" data-para="${esc(r.credor)}" data-v="${r.acerto}">Registrar acerto</button>`:""}
-    <button class="btn ${r.acerto>0?"ghost":""}" data-a="pagar">Registrar pagamento</button>
-    ${r.acerto>0?"":`<button class="btn ghost" data-a="transf">Transferência</button>`}</div>`;
+    hero=`<p class="acerto">Mês fechado</p><p class="sub">Contas pagas e acerto feito. Ninguém deve nada.</p>`;
+  }else hero=`<p class="acerto">Nenhuma conta neste mês</p><p class="sub">Toque em + para adicionar uma conta.</p>`;
   const pes=r.ps.map((p,i)=>{
     const dv=r.devido[p.id],pg=r.pago[p.id],rd=r.rendas[p.id]||0;
     const w=dv>0?Math.min(100,Math.max(0,pg/dv*100)):0,s=r.saldo[p.id];
     const sit=s>0?`a receber ${brl(s)}`:s<0?`falta ${brl(-s)}`:"em dia";
-    return `<div class="pessoa" style="--c:${varCor(i)}">
-      <div class="pessoa-top"><span class="nome">${esc(p.nome)}</span><span class="parte num">${brl(dv)}</span></div>
+    return `<div class="pc" style="--c:${varCor(i)}">
+      <span class="ico" aria-hidden="true">${esc((p.nome||"?")[0].toUpperCase())}</span><div class="pnome">${esc(p.nome)}</div>
+      <div class="pval num">${brl(dv)}</div><div class="psub">parte do mês</div>
       <div class="barra" role="img" aria-label="${esc(p.nome)} pagou ${Math.round(w)}% da sua parte"><span style="width:${w}%"></span></div>
-      <div class="pessoa-sub num"><span>Pagou ${brl(pg)}, ${sit}</span><span>${rd?pctf(dv/rd)+" da renda":"renda não informada"}</span></div></div>`;
+      <div class="psub num">Pagou ${brl(pg)}</div><div class="psub num">${sit}</div>
+      <div class="psub num">${rd?pctf(dv/rd)+" da renda":"renda não informada"}</div></div>`;
   }).join("");
   const rendasTxt=r.ps.map(p=>esc(p.nome)+" "+brl(r.rendas[p.id]||0)).join(", ");
   const lis=r.contas.map(c=>{
@@ -497,9 +578,10 @@ function renderMes(){
   const isUlt=S.mesId===ids[ids.length-1],prox=nextId(S.mesId);
   const nPend=r.contas.filter(c=>c.status==="pendente"||c.status==="parcial").length;
   const resumoContas=r.contas.length?r.contas.length+(r.contas.length===1?" conta":" contas")+(nPend?", "+nPend+(nPend===1?" em aberto":" em aberto"):", todas pagas"):"nenhuma conta";
-  app.innerHTML=`<div class="hero">${hero}${acts}</div>
+  app.innerHTML=`${resumo}
   ${htmlPendencias()}
-  <div class="balanca">${pes}<div class="rendas"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div>
+  <div class="status">${hero}</div>
+  <section style="margin-top:14px"><div class="pgrid">${pes}</div><div class="rendas"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div></section>
   <section><details class="sec" data-sec="contas" ${S.sec.contas?"open":""}><summary><h2>Contas</h2><span class="meta num">${resumoContas}</span></summary>
     <ul class="lista">${lis||`<li class="vazio">Nenhuma conta neste mês.</li>`}<li class="lista-foot num"><span>Total</span><span>${brl(r.total)}</span></li></ul>
     <p style="margin:10px 2px 0"><button class="link" data-a="novaconta">Adicionar conta só neste mês</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar uma compra</button></p></details></section>
@@ -557,7 +639,7 @@ function renderAjustes(){
       <p><strong>${esc(g.nome)}</strong></p>
       <div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="renomear">Renomear</button><button class="btn small ghost" data-a="novogrupo">Novo grupo</button><button class="btn small danger" data-a="excluirgrupo">Excluir grupo</button></div></div></section>`;
   }
-  h+=`<section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}${S.admin?", administrador":""}.</p><div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="senha">${S.session?.user?.user_metadata?.senha_definida?"Alterar senha":"Definir senha"}</button><button class="btn small ghost" data-a="sair">Sair</button></div></div></section>`;
+  h+=`<section><div class="card"><p><strong>Sua conta</strong></p><p>Conectado como ${esc(S.session?.user?.email)}${S.admin?", administrador":""}.</p><div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="senha">${S.session?.user?.user_metadata?.senha_definida?"Alterar senha":"Definir senha"}</button><button class="btn small ghost" data-a="sairconf">Sair</button></div></div></section>`;
   app.innerHTML=h;
 }
 
@@ -688,20 +770,40 @@ function dlgTransf(de,para,v,mesId){
       await q(S.sb.from("pagamentos").insert({grupo_id:gid(),mes_id:mesId,tipo:"transferencia",de:fd.get("de"),para:fd.get("para"),valor:val,data:fd.get("data"),obs:fd.get("obs")||""}));
       toast("Transferência registrada.");});
 }
-function dlgMinhaConta(){
-  const u=S.session?.user;if(!u)return;
-  const mor=meuMorador();
-  openDlg("Sua conta","",
-    `<div class="conta-info"><span class="avatar grande" aria-hidden="true">${esc(inicial())}</span><div><strong>${esc(u.email)}</strong><small>${S.admin?"Administrador":"Participante"}${mor&&nomeDe(mor)?" · "+esc(nomeDe(mor)):""}</small></div></div>
-     <div class="conta-acts"><button type="submit" class="btn ghost" value="senha" formnovalidate>${u.user_metadata?.senha_definida?"Alterar senha":"Definir senha"}</button><button type="submit" class="btn danger" value="sair" formnovalidate>Sair da conta</button></div>`,
-    `<button class="btn" value="cancel" formnovalidate autofocus>Fechar</button>`,
-    async(fd,act)=>{
-      if(act==="senha"){dlg.close();dlgSenha(false);return false}
-      if(act==="sair"){dlg.close();await S.sb.auth.signOut();location.reload();return false}
-      return false;
-    });
+function temaAtual(){try{return localStorage.getItem("tema")||"dark"}catch(e){return "dark"}}
+function aplicarTema(t){
+  document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("tema",t)}catch(e){}
+  const claro=t==="light"||(t==="auto"&&typeof matchMedia==="function"&&matchMedia("(prefers-color-scheme: light)").matches);
+  const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=claro?"#F2F3F5":"#0B0B0C";
+  document.querySelectorAll("[data-tema]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tema===t)));
 }
-function inicial(){const e=String(S.session?.user?.email||"?").trim();return (e[0]||"?").toUpperCase()}
+function fecharDrawer(){const d=$("#drawer");if(d&&d.open)d.close()}
+function fecharMais(){const m=$("#maismenu");if(m)m.hidden=true;const b=$("#mais");if(b)b.setAttribute("aria-expanded","false")}
+function atualizarDrawer(g){
+  document.querySelectorAll("#drawer [data-tab]").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
+  const u=S.session?.user;if(!u)return;
+  const mor=meuMorador(),nome=(mor&&nomeDe(mor))||String(u.email||"").split("@")[0];
+  $("#dnome").textContent=nome;$("#demail").textContent=u.email||"";
+  $("#dpapel").textContent=S.admin?"Administrador":"Participante";
+  $("#avatar").textContent=inicial();
+  const gb=$("#gbtn");if(g){gb.querySelector("span").textContent=g.nome;gb.disabled=!(S.grupos.length>1||S.admin)}
+  $("#drsenha").textContent=u.user_metadata?.senha_definida?"Alterar senha":"Definir senha";
+}
+function dlgNovo(){
+  openDlg("Adicionar","",`<div class="sheet">
+    <button type="submit" class="sheetopt" value="pagar" formnovalidate>Registrar pagamento<small>Alguém pagou uma conta</small></button>
+    <button type="submit" class="sheetopt" value="transf" formnovalidate>Transferência<small>Acerto de valores entre vocês</small></button>
+    <button type="submit" class="sheetopt" value="conta" formnovalidate>Nova conta neste mês<small>Vale só para ${esc(mesNome(S.mesId))}</small></button>
+    <button type="submit" class="sheetopt" value="parc" formnovalidate>Parcelar uma compra<small>Se repete pelos próximos meses</small></button></div>`,
+    `<button class="btn ghost" value="cancel" formnovalidate>Fechar</button>`,
+    async(fd,act)=>{dlg.close();if(act==="pagar")dlgPagar();else if(act==="transf")dlgTransf(undefined,undefined,null);else if(act==="conta")dlgEditConta(null);else if(act==="parc")dlgTpl(null,true);return false});
+}
+function dlgSair(){
+  openDlg("Sair da conta?","Você vai precisar entrar de novo com e-mail e senha neste aparelho.","",
+    cancelar+`<button class="btn danger" value="sair" formnovalidate>Sair da conta</button>`,
+    async()=>{dlg.close();await S.sb.auth.signOut();location.reload();return false});
+}
+function inicial(){const mor=S.grupoId?meuMorador():null,n=(mor&&nomeDe(mor))||String(S.session?.user?.email||"?").trim();return (n[0]||"?").toUpperCase()}
 function dlgSenha(primeira){
   openDlg(primeira?"Defina uma senha":(S.session?.user?.user_metadata?.senha_definida?"Alterar senha":"Definir senha"),
     primeira?"Com uma senha você entra só com e-mail e senha, sem precisar do link por e-mail.":"Use pelo menos 8 caracteres.",
@@ -913,7 +1015,8 @@ function exportCSV(){
 
 document.addEventListener("click",async e=>{
   const b=e.target.closest("[data-a]");
-  if(b){const a=b.dataset.a;
+  if(!e.target.closest("#maismenu,#mais"))fecharMais();
+  if(b){const a=b.dataset.a;if(b.closest("#drawer"))fecharDrawer();if(b.closest("#maismenu"))fecharMais();
     try{
       if(a==="pagar")dlgPagar();
       else if(a==="transf")dlgTransf(b.dataset.de,b.dataset.para,b.dataset.v?Number(b.dataset.v):null);
@@ -939,18 +1042,26 @@ document.addEventListener("click",async e=>{
       else if(a==="voltarlogin"){S.enviado=null;render()}
       else if(a==="modologin"){const f=$("#fLogin");if(f)S.emailLogin=String(new FormData(f).get("email")||"").trim();S.modoLogin=S.modoLogin==="link"?"senha":"link";render()}
       else if(a==="senha"){dlgSenha(false)}
-      else if(a==="minhaconta"){dlgMinhaConta()}
+      else if(a==="sairconf"){dlgSair()}
+      else if(a==="hoje"){const h=hojeId();if(S.meses[h]){S.mesId=h;render();window.scrollTo(0,0)}else toast("O mês atual ainda não foi aberto.")}
     }catch(err){erro(err)}finally{if(a==="abrir"&&b.isConnected)b.disabled=false}
     return;
   }
-  const t=e.target.closest(".tabs button");
-  if(t){S.tab=t.dataset.tab;render();window.scrollTo(0,0)}
+  const t=e.target.closest("[data-tab]");
+  if(t){S.tab=t.dataset.tab;fecharDrawer();render();window.scrollTo(0,0)}
+  const tm=e.target.closest("[data-tema]");
+  if(tm)aplicarTema(tm.dataset.tema);
 });
 document.addEventListener("change",async e=>{
   const s=e.target.closest("select[data-vinculo]");
   if(s){try{await vincular(s.dataset.vinculo,s.value)}catch(err){erro(err)}}
 });
-$("#gbtn").onclick=()=>dlgGrupos();
+$("#gbtn").onclick=()=>{fecharDrawer();dlgGrupos()};
+$("#menu").onclick=()=>{fecharMais();$("#drawer").showModal();const c=$("#drawer .dr");if(c)c.focus()};
+$("#drawer").addEventListener("click",e=>{if(e.target===$("#drawer"))fecharDrawer()});
+$("#fab").onclick=()=>dlgNovo();
+$("#mais").onclick=()=>{const m=$("#maismenu");m.hidden=!m.hidden;$("#mais").setAttribute("aria-expanded",String(!m.hidden))};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")fecharMais()});
 $("#prev").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i>0){S.mesId=ids[i-1];render()}};
 $("#next").onclick=()=>{const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId);if(i<0)return;if(i<ids.length-1){S.mesId=ids[i+1];render()}else dlgAbrirProx()};
 
@@ -985,6 +1096,7 @@ async function entrar(session){
 async function init(){
   const incompleto=!CFG.url||!CFG.key||/COLE/i.test(String(CFG.url)+String(CFG.key));
   if(!window.supabase||incompleto){S.status="config";render();return}
+  aplicarTema(temaAtual());
   S.sb=window.supabase.createClient(CFG.url,CFG.key);
   render();
   let atual;
