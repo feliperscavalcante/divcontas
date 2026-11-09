@@ -261,6 +261,12 @@ dialog#drawer[open]{animation:slidein .2s ease-out}
 .seg button[aria-pressed="true"]{background:var(--sunk);color:var(--ink)}
 .dr-foot{margin-top:auto;padding-top:14px}
 .dr-item.sair{color:var(--bad)}
+.slbox{display:grid;gap:8px;margin:2px 0 4px}
+.slends{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:700}
+.slends span{min-width:0;display:grid;gap:1px}
+.slends span:last-child{text-align:right}
+.slends small{font-weight:400;color:var(--muted);font-size:13px}
+.slider{width:100%;height:36px;margin:0;accent-color:var(--accent);cursor:pointer;touch-action:pan-y}
 </style>
 </head>
 <body>
@@ -837,6 +843,12 @@ function dlgConta(id){
     `<button class="btn ghost esq" value="edit">Editar</button><button class="btn ghost" value="cancel" formnovalidate>Fechar</button>${c.status!=="pago"?`<button class="btn" value="pay">Registrar pagamento</button>`:""}`,
     async(fd,act)=>{dlg.close();if(act==="pay")dlgPagar(id);else if(act==="edit")dlgEditConta(id);return false});
 }
+function sliders(c,ps){
+  const v=p=>Math.round((c?.pct?.[p.id]??(100/ps.length))*2)/2;
+  if(ps.length<2)return "";
+  if(ps.length===2)return `<div class="slbox"><div class="slends num"><span id="slA">${esc(ps[0].nome)}</span><span id="slB">${esc(ps[1].nome)}</span></div><input type="range" class="slider" name="sl_${esc(ps[0].id)}" min="0" max="100" step="0.5" value="${v(ps[0])}" aria-label="Divisão entre ${esc(ps[0].nome)} e ${esc(ps[1].nome)}"></div>`;
+  return `<div class="slbox">${ps.map(p=>`<label class="campo"><span>Ajustar % de ${esc(p.nome)}</span><input type="range" class="slider" name="sl_${esc(p.id)}" min="0" max="100" step="0.5" value="${v(p)}"></label>`).join("")}</div>`;
+}
 function campoDia(c,mesId){
   if(mesId){
     const ult=new Date(+mesId.slice(0,4),+mesId.slice(5),0).getDate();
@@ -851,7 +863,7 @@ function formConta(c,valorLabel,extra,mesId){
   `<label class="campo"><span id="lblValor">${valorLabel||"Valor (R$)"}</span><input name="valor" type="text" inputmode="numeric" data-money autocomplete="off" value="${c?.valor!=null?toInput(c.valor):""}" placeholder="0,00"></label>`+
   (extra||"")+
   campo("Divisão",`<select name="regra" id="selRegra"><option value="igual" ${reg==="igual"?"selected":""}>${ps.length===2?"Meio a meio":"Partes iguais"}</option><option value="proporcional" ${reg==="proporcional"?"selected":""}>Proporcional à renda</option><option value="custom" ${reg==="custom"?"selected":""}>Digitar valor</option></select>`)+
-  `<div id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>`<div class="duo">${campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="any" inputmode="decimal" value="${Math.round((c?.pct?.[p.id]??(100/ps.length))*10000)/10000}">`)}${campo("R$ de "+esc(p.nome),`<input name="rs_${esc(p.id)}" type="text" inputmode="numeric" data-money placeholder="0,00" autocomplete="off">`)}</div>`).join("")}<p class="nota" id="pctHint"></p></div>`;
+  `<div id="pctBox" ${reg==="custom"?"":"hidden"}>${ps.map(p=>`<div class="duo">${campo("% de "+esc(p.nome),`<input name="pct_${esc(p.id)}" type="number" min="0" max="100" step="any" inputmode="decimal" value="${Math.round((c?.pct?.[p.id]??(100/ps.length))*10000)/10000}">`)}${campo("R$ de "+esc(p.nome),`<input name="rs_${esc(p.id)}" type="text" inputmode="numeric" data-money placeholder="0,00" autocomplete="off">`)}</div>`).join("")}${sliders(c,ps)}<p class="nota" id="pctHint"></p></div>`;
 }
 function lerConta(fd){
   const ps=pessoas(),regra=fd.get("regra");let pct=null;
@@ -865,23 +877,34 @@ function bindRegra(){
   const T=()=>{const v=parseBRL(vEl?vEl.value:"");return isNaN(v)||v<0?0:v};
   const fp=x=>String(Math.round(x*10000)/10000),pv=id=>Math.max(0,Number(P(id).value)||0);
   const cents=(id,t)=>Math.round(t*pv(id)/100);
+  const SL=id=>box.querySelector('[name="sl_'+id+'"]');
+  const sliderIds=ps.length===2?[ps[0]]:ps.length>2?ps:[];
+  function syncSl(){
+    sliderIds.forEach(p=>{const el=SL(p.id);if(el)el.value=String(Math.min(100,pv(p.id)))});
+    if(ps.length===2){
+      const t=T(),a=pv(ps[0].id),b=pv(ps[1].id);
+      $("#slA").innerHTML="<b>"+esc(ps[0].nome)+" "+fp(a)+"%</b>"+(t>0?"<small>R$ "+toInput(cents(ps[0].id,t))+"</small>":"");
+      $("#slB").innerHTML="<b>"+fp(b)+"% "+esc(ps[1].nome)+"</b>"+(t>0?"<small>R$ "+toInput(cents(ps[1].id,t))+"</small>":"");
+    }
+  }
   function dica(alvo){
     const t=T();
     $("#pctHint").textContent=!ps.length?"":t>0?(alvo?"Digite em % ou em R$. O restante vai para "+alvo.nome+": "+fp(pv(alvo.id))+"% (R$ "+toInput(cents(alvo.id,t))+").":"Digite em % ou em R$."):"Para digitar em reais, informe antes o valor da despesa. Por enquanto vale o percentual.";
   }
-  function tudo(){const t=T();ps.forEach(p=>{R(p.id).disabled=t<=0;R(p.id).value=t>0?toInput(cents(p.id,t)):""});dica(null)}
+  function tudo(){const t=T();ps.forEach(p=>{R(p.id).disabled=t<=0;R(p.id).value=t>0?toInput(cents(p.id,t)):""});dica(null);syncSl()}
   function resto(from){
     if(ps.length<2)return;
     const alvo=from===ps[ps.length-1].id?ps[0]:ps[ps.length-1],outros=ps.filter(p=>p.id!==alvo.id),t=T();
     P(alvo.id).value=fp(Math.max(0,100-outros.reduce((a,p)=>a+pv(p.id),0)));
     if(t>0)R(alvo.id).value=toInput(Math.max(0,t-outros.reduce((a,p)=>a+cents(p.id,t),0)));
-    dica(alvo);
+    dica(alvo);syncSl();
   }
   $("#selRegra").addEventListener("change",e=>{box.hidden=e.target.value!=="custom";if(!box.hidden)tudo()});
   ps.forEach(p=>{
     P(p.id).addEventListener("input",()=>{const t=T();if(t>0)R(p.id).value=toInput(cents(p.id,t));resto(p.id)});
     R(p.id).addEventListener("input",()=>{const t=T();if(t<=0)return;let c=parseBRL(R(p.id).value);if(isNaN(c)||c<0)c=0;P(p.id).value=fp(Math.min(100,c/t*100));resto(p.id)});
   });
+  sliderIds.forEach(p=>{const el=SL(p.id);if(el)el.addEventListener("input",()=>{P(p.id).value=fp(Number(el.value));P(p.id).dispatchEvent(new Event("input",{bubbles:true}))})});
   if(vEl)vEl.addEventListener("input",tudo);
   tudo();
 }
