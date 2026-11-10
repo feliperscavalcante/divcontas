@@ -338,9 +338,12 @@ const $=s=>document.querySelector(s);
 const app=$("#app"),dlg=$("#dlg");
 
 /* ---------- atalhos de estado ---------- */
-const pessoas=()=>S.config?.moradores||[];
-const nomeDe=id=>pessoas().find(p=>p.id===id)?.nome||id;
-const corDe=id=>"c"+Math.max(0,pessoas().findIndex(p=>p.id===id));
+const todasPessoas=()=>S.config?.moradores||[];
+/* Quem divide as despesas em um mês: respeita "participa a partir de" e "até" de cada pessoa. */
+const ativaEm=(p,id)=>(!p.desde||!id||p.desde<=id)&&(!p.ate||!id||id<=p.ate);
+const pessoas=id=>{id=id||S.mesId;return todasPessoas().filter(p=>ativaEm(p,id))};
+const nomeDe=id=>todasPessoas().find(p=>p.id===id)?.nome||id;
+const corDe=id=>"c"+Math.max(0,todasPessoas().findIndex(p=>p.id===id));
 const varCor=i=>"var(--p"+(i%2)+")";
 const pagsMes=()=>S.todosPags.filter(p=>p.mes===S.mesId);
 const emailMeu=()=>String(S.session?.user?.email||"").toLowerCase();
@@ -390,8 +393,8 @@ async function carregar(){
     q(sb.from("pagamentos").select("*").eq("grupo_id",gid))
   ]);
   if(seq!==S.seq)return;
-  S.config={moradores:mor.map(x=>({id:x.id,nome:x.nome})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao,parcelas:x.parcelas||null,inicio:x.inicio||null}))};
-  const m={};mes.forEach(x=>m[x.id]={rendas:x.rendas||{},contas:{}});
+  S.config={moradores:mor.map(x=>({id:x.id,nome:x.nome,desde:x.desde||null,ate:x.ate||null})),contas:rec.map(x=>({id:x.id,nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valorPadrao:x.valor_padrao,parcelas:x.parcelas||null,inicio:x.inicio||null}))};
+  const m={};mes.forEach(x=>m[x.id]={id:x.id,rendas:x.rendas||{},contas:{}});
   cm.forEach(x=>{if(m[x.mes_id])m[x.mes_id].contas[x.conta_id]={nome:x.nome,dia:x.dia,regra:x.regra,pct:x.pct,valor:x.valor,estimado:x.estimado,parcela:x.parcela||null,parcelas:x.parcelas||null}});
   S.meses=m;projetar();
   S.todosPags=pg.map(x=>({id:x.id,mes:x.mes_id,tipo:x.tipo,contaId:x.conta_id,quem:x.quem,de:x.de,para:x.para,valor:x.valor,data:x.data,obs:x.obs}));
@@ -410,7 +413,9 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 
 /* ---------- cálculo ---------- */
 function calc(mes,pags){
-  const ps=pessoas(),rendas=mes.rendas||{};
+  const rendas=mes.rendas||{};
+  /* Quem entra na divisão deste mês, mais qualquer pessoa que já tenha pagamento nele. */
+  const ps=todasPessoas().filter(p=>ativaEm(p,mes.id)||pags.some(g=>g.quem===p.id||g.de===p.id||g.para===p.id));
   const rendaTotal=ps.reduce((a,p)=>a+(rendas[p.id]||0),0);
   const devido={},pago={},pagoConta={},devidoPago={};
   ps.forEach(p=>{devido[p.id]=0;pago[p.id]=0;devidoPago[p.id]=0});
@@ -455,7 +460,7 @@ function render(){
   const temAcesso=S.status==="ok"&&(S.grupos.length>0||S.admin);
   const g=grupoAtual();
   const mostraAbas=temAcesso&&!!g;
-  const membro=mostraAbas&&souMembro()&&pessoas().length>0;
+  const membro=mostraAbas&&souMembro()&&todasPessoas().length>0;
   const ids=Object.keys(S.meses).sort(),i=ids.indexOf(S.mesId),naMes=mostraAbas&&S.tab==="mes"&&membro,temMes=!!(naMes&&S.mesId&&S.meses[S.mesId]);
   $("#menu").style.visibility=mostraAbas?"visible":"hidden";
   $("#mais").style.visibility=temMes?"visible":"hidden";
@@ -476,7 +481,7 @@ function render(){
   if(!g){renderSemGrupo();return}
   if(S.tab==="ajustes"){renderAjustes();return}
   if(!souMembro()){renderNaoMembro();return}
-  if(!pessoas().length){renderSemPessoas();return}
+  if(!todasPessoas().length){renderSemPessoas();return}
   if(S.tab==="mes")renderMes();else renderHist();
 }
 function renderLogin(){
@@ -537,7 +542,7 @@ function htmlPendencias(){
 }
 /* Acerto entre as pessoas somando o que ficou em aberto nos meses anteriores (saldo acumulado até o mês em tela). */
 function acertoAcum(mesId,r){
-  const ps=pessoas(),tot={},ant={};
+  const ps=todasPessoas(),tot={},ant={};
   ps.forEach(p=>{tot[p.id]=r.saldo[p.id]||0;ant[p.id]=0});
   for(const id of Object.keys(S.meses).sort()){
     const m=S.meses[id];if(m.virtual||id>=mesId)continue;
@@ -638,10 +643,12 @@ function renderHist(){
   <section><div class="card"><p><strong>Exportar dados</strong></p><p>Gera um arquivo CSV com todas as despesas e movimentos, que abre no Excel ou no Google Planilhas.</p><button class="btn small" data-a="csv">Baixar CSV</button></div></section>`;
 }
 function renderAjustes(){
-  const g=grupoAtual(),ps=pessoas(),cs=(S.config?.contas||[]).slice().sort((a,b)=>a.dia-b.dia),membro=souMembro();
+  const g=grupoAtual(),ps=todasPessoas(),cs=(S.config?.contas||[]).slice().sort((a,b)=>a.dia-b.dia),membro=souMembro();
   let h="";
-  h+=`<section><div class="sec-h"><h2>Pessoas</h2>${ps.length?`<button class="link" data-a="moradores">Editar nomes</button>`:""}</div>
-    <div class="card">${ps.map((p,i)=>`<p><strong style="color:${varCor(i)}">${esc(p.nome)}</strong></p>`).join("")||`<p>Nenhuma pessoa cadastrada.</p>`}</div></section>`;
+  h+=`<section><div class="sec-h"><h2>Pessoas</h2></div>
+    <ul class="lista">${ps.map((p,i)=>`<li class="pr"><div><strong style="color:${varCor(i)}">${esc(p.nome)}</strong><br><span class="nota" style="margin:0">${periodoTxt(p)}</span></div>
+      <button class="link" data-a="editpessoa" data-id="${esc(p.id)}">Editar</button></li>`).join("")||`<li class="vazio">Nenhuma pessoa cadastrada.</li>`}</ul>
+    <p class="nota">Cada pessoa só entra na divisão dos meses em que participa. Para sair do grupo sem perder o histórico, defina o último mês dela em Editar.</p></section>`;
   if(membro){
     h+=`<section><div class="sec-h"><h2>Despesas recorrentes</h2><span><button class="link" data-a="tpl">Adicionar</button> &nbsp;·&nbsp; <button class="link" data-a="novoparcelamento">Parcelar</button></span></div>
     <ul class="lista">${cs.map(c=>{
@@ -737,8 +744,9 @@ function dlgExcluirGrupo(){
     });
 }
 function dlgAddPessoa(){
-  openDlg("Adicionar pessoa","A pessoa entra no app com este e-mail, por link de acesso, e passa a ver o grupo. Atenção: ela também passa a dividir os meses já abertos. Em grupos com histórico, prefira adicionar antes de lançar despesas.",
+  openDlg("Adicionar pessoa","A pessoa entra no app com este e-mail, por link de acesso, e passa a ver o grupo. Ela só divide as despesas a partir do mês escolhido; os meses anteriores não mudam.",
     campo("Nome",`<input name="nome" required maxlength="30">`)+campo("E-mail",`<input name="email" type="email" required autocomplete="off">`)+
+    campo("Participa a partir de",`<select name="desde">${optMeses(hojeId(),false)}</select>`)+
     `<p class="nota" style="margin:0">Endereço do app para enviar à pessoa: <strong style="word-break:break-all">${esc(location.origin+location.pathname)}</strong></p>`,
     cancelar+`<button class="btn" value="ok">Adicionar</button>`,
     async fd=>{
@@ -746,7 +754,7 @@ function dlgAddPessoa(){
       if(!nome||!EMAIL.test(email)){toast("Informe um nome e um e-mail válido.");return false}
       if(membrosDoGrupo().some(m=>m.email===email)){toast("Este e-mail já tem acesso ao grupo.");return false}
       const id=slug(nome);
-      await q(S.sb.from("moradores").insert({grupo_id:gid(),id,nome,ordem:pessoas().length}));
+      await q(S.sb.from("moradores").insert({grupo_id:gid(),id,nome,ordem:todasPessoas().length,desde:String(fd.get("desde"))||null}));
       try{await q(S.sb.from("grupo_membros").insert({grupo_id:gid(),email,morador_id:id}))}
       catch(err){await S.sb.from("moradores").delete().eq("grupo_id",gid()).eq("id",id);throw err}
       toast("Pessoa adicionada.");
@@ -952,7 +960,7 @@ function dlgRendas(){
   openDlg("Rendas de "+mesNome(S.mesId),"Usadas nas despesas divididas pela renda. Os meses futuros ainda não editados usam estes valores.",
     pessoas().map(p=>campo(esc(p.nome)+" (R$)",valInput("r_"+p.id,mes.rendas?.[p.id]||0))).join(""),
     cancelar+`<button class="btn" value="ok">Salvar</button>`,
-    async fd=>{const rendas={};for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
+    async fd=>{const rendas=Object.assign({},mes.rendas);for(const p of pessoas()){const v=parseBRL(fd.get("r_"+p.id));if(isNaN(v)||v<0){toast("Renda inválida.");return false}rendas[p.id]=v}
       await garantirMes(S.mesId);
       await q(S.sb.from("meses").update({rendas}).eq("grupo_id",gid()).eq("id",S.mesId));toast("Rendas atualizadas.");});
 }
@@ -1014,15 +1022,39 @@ function dlgTpl(id,parcelado){
     $("#lblValor").textContent=p?LBL_PARC:LBL_FIXA;
   });
 }
-function dlgMoradores(){
-  const ps=pessoas();
-  openDlg("Nomes das pessoas","",
-    ps.map((p,i)=>campo("Pessoa "+(i+1),`<input name="n_${esc(p.id)}" required maxlength="30" value="${esc(p.nome)}">`)).join(""),
+const periodoTxt=p=>p.desde&&p.ate?"Participa de "+mesCurto(p.desde)+" a "+mesCurto(p.ate):p.desde?"Participa desde "+mesCurto(p.desde):p.ate?"Participou até "+mesCurto(p.ate):"Participa de todos os meses";
+function optMeses(sel,comVazio,vazioTxt){
+  const ini=somaMeses(hojeId(),-12),ids=new Set();
+  for(let i=0;i<=36;i++)ids.add(somaMeses(ini,i));
+  if(sel)ids.add(sel);
+  Object.keys(S.meses||{}).forEach(x=>ids.add(x));
+  return (comVazio?`<option value="">${vazioTxt}</option>`:"")+[...ids].sort().map(id=>`<option value="${id}" ${id===sel?"selected":""}>${mesNome(id)}</option>`).join("");
+}
+function dlgEditPessoa(id){
+  const p=todasPessoas().find(x=>x.id===id);if(!p)return;
+  openDlg("Editar "+p.nome,"Defina em quais meses esta pessoa divide as despesas. Os meses fora do período deixam de contar para ela, sem apagar nada.",
+    campo("Nome",`<input name="nome" required maxlength="30" value="${esc(p.nome)}">`)+
+    campo("Participa a partir de",`<select name="desde">${optMeses(p.desde,true,"Desde o início")}</select>`)+
+    campo("Último mês de participação",`<select name="ate">${optMeses(p.ate,true,"Sem data final")}</select>`)+
+    `<button type="button" class="btn small danger" data-a="delpessoa" data-id="${esc(p.id)}" style="margin-top:6px">Excluir esta pessoa</button>`,
     cancelar+`<button class="btn" value="ok">Salvar</button>`,
     async fd=>{
-      const linhas=ps.map((p,i)=>({grupo_id:gid(),id:p.id,nome:String(fd.get("n_"+p.id)).trim()||p.nome,ordem:i}));
-      await q(S.sb.from("moradores").upsert(linhas));toast("Nomes atualizados.");
+      const nome=String(fd.get("nome")).trim(),desde=String(fd.get("desde"))||null,ate=String(fd.get("ate"))||null;
+      if(!nome){toast("Informe o nome.");return false}
+      if(desde&&ate&&ate<desde){toast("O último mês não pode ser anterior ao primeiro.");return false}
+      await q(S.sb.from("moradores").update({nome,desde,ate}).eq("grupo_id",gid()).eq("id",id));
+      toast("Pessoa atualizada.");
     });
+}
+async function excluirPessoa(id){
+  const p=todasPessoas().find(x=>x.id===id);if(!p)return;
+  if(S.todosPags.some(g=>g.quem===id||g.de===id||g.para===id)){
+    toast("Esta pessoa já tem pagamentos lançados. Em vez de excluir, defina o último mês de participação.");return}
+  if(!confirm("Excluir "+p.nome+" do grupo? Ela deixa de aparecer na divisão de todos os meses."))return;
+  dlg.close();
+  await q(S.sb.from("grupo_membros").update({morador_id:null}).eq("grupo_id",gid()).eq("morador_id",id));
+  await q(S.sb.from("moradores").delete().eq("grupo_id",gid()).eq("id",id));
+  toast("Pessoa excluída.");await carregar();
 }
 
 /* ---------- ações ---------- */
@@ -1050,7 +1082,7 @@ function projetar(){
   for(let id=nextId(ult);id<=fim;id=nextId(id)){
     const contas={};
     contasDoMes(id,base).forEach(l=>{contas[l.conta_id]={nome:l.nome,dia:l.dia,regra:l.regra,pct:l.pct,valor:l.valor,estimado:l.estimado,parcela:l.parcela||null,parcelas:l.parcelas||null}});
-    S.meses[id]={rendas:base.rendas||{},contas,virtual:true};
+    S.meses[id]={id,rendas:base.rendas||{},contas,virtual:true};
   }
 }
 async function criarMes(id,base){
@@ -1116,7 +1148,8 @@ document.addEventListener("click",async e=>{
       else if(a==="abrir"){b.disabled=true;await abrirMes(b.dataset.id)}
       else if(a==="delpag")await delPag(b.dataset.id);
       else if(a==="tpl")dlgTpl(b.dataset.id);
-      else if(a==="moradores")dlgMoradores();
+      else if(a==="editpessoa")dlgEditPessoa(b.dataset.id);
+      else if(a==="delpessoa")await excluirPessoa(b.dataset.id);
       else if(a==="csv")exportCSV();
       else if(a==="novogrupo")dlgNovoGrupo();
       else if(a==="renomear")dlgRenomear();
