@@ -517,23 +517,38 @@ function renderSemPessoas(){
 
 /* Contas em aberto e acerto pendente do mês anterior. Só informativo: não altera o cálculo do mês atual. */
 function pendenciasAnteriores(){
-  const pid=prevId(S.mesId),pm=S.meses[pid];
-  if(!pm||pm.virtual||pid>hojeId())return null;
-  const pr=calc(pm,S.todosPags.filter(p=>p.mes===pid));
-  const contas=pr.contas.filter(c=>c.status==="pendente"||c.status==="parcial")
-    .map(c=>({id:c.id,nome:c.nome,dia:c.dia,falta:c.valor-c.pagoConta,parcial:c.status==="parcial",parcela:parcelaTxt(c)}));
-  const acerto=pr.acerto>0?{de:pr.devedor,para:pr.credor,valor:pr.acerto}:null;
-  if(!contas.length&&!acerto)return null;
-  return {mesId:pid,contas,acerto,total:contas.reduce((a,c)=>a+c.falta,0)};
+  const hid=hojeId(),ids=Object.keys(S.meses).filter(id=>id<S.mesId&&id<=hid&&!S.meses[id].virtual).sort();
+  const contas=[];
+  for(const id of ids){
+    const pr=calc(S.meses[id],S.todosPags.filter(p=>p.mes===id));
+    pr.contas.filter(c=>c.status==="pendente"||c.status==="parcial")
+      .forEach(c=>contas.push({mesId:id,id:c.id,nome:c.nome,dia:c.dia,falta:c.valor-c.pagoConta,parcial:c.status==="parcial",parcela:parcelaTxt(c)}));
+  }
+  if(!contas.length)return null;
+  return {meses:[...new Set(contas.map(c=>c.mesId))],contas,total:contas.reduce((a,c)=>a+c.falta,0)};
 }
 function htmlPendencias(){
   const p=pendenciasAnteriores();if(!p)return "";
-  const partes=[];
-  if(p.contas.length)partes.push(`<span class="nb">${p.contas.length+(p.contas.length===1?" despesa":" despesas")} (${brl(p.total)})</span>`);
-  if(p.acerto)partes.push(`<span class="nb">acerto de ${brl(p.acerto.valor)}</span>`);
-  const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${p.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${c.parcela?esc(c.parcela)+", ":""}pagamento dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("")
-    +(p.acerto?`<li><button type="button" data-a="transfprev" data-mes="${p.mesId}" data-de="${esc(p.acerto.de)}" data-para="${esc(p.acerto.para)}" data-v="${p.acerto.valor}"><span>Acerto<small>${esc(nomeDe(p.acerto.de))} para ${esc(nomeDe(p.acerto.para))}</small></span><span class="num">${brl(p.acerto.valor)}</span></button></li>`:"");
-  return `<details class="pend"><summary><span class="pt">Pendências de ${MESES[+p.mesId.slice(5)-1]}</span><span class="ps num">${partes.join(" e ")}</span></summary><ul>${itens}</ul></details>`;
+  const varios=p.meses.length>1,mn=id=>MESES[+id.slice(5)-1];
+  const titulo=varios?"Pendências de meses anteriores":"Pendências de "+mn(p.meses[0]);
+  const resumo=`<span class="nb">${p.contas.length+(p.contas.length===1?" despesa":" despesas")} (${brl(p.total)})</span>`;
+  const itens=p.contas.map(c=>`<li><button type="button" data-a="pagprev" data-mes="${c.mesId}" data-id="${esc(c.id)}"><span>${esc(c.nome)}<small>${varios?mn(c.mesId)+", ":""}${c.parcela?esc(c.parcela)+", ":""}pagamento dia ${c.dia}${c.parcial?", paga em parte":""}</small></span><span class="num">${brl(c.falta)}</span></button></li>`).join("");
+  return `<details class="pend"><summary><span class="pt">${titulo}</span><span class="ps num">${resumo}</span></summary><ul>${itens}</ul></details>`;
+}
+/* Acerto entre as pessoas somando o que ficou em aberto nos meses anteriores (saldo acumulado até o mês em tela). */
+function acertoAcum(mesId,r){
+  const ps=pessoas(),tot={},ant={};
+  ps.forEach(p=>{tot[p.id]=r.saldo[p.id]||0;ant[p.id]=0});
+  for(const id of Object.keys(S.meses).sort()){
+    const m=S.meses[id];if(m.virtual||id>=mesId)continue;
+    const x=calc(m,S.todosPags.filter(g=>g.mes===id));
+    ps.forEach(p=>{ant[p.id]+=x.saldo[p.id]||0;tot[p.id]+=x.saldo[p.id]||0});
+  }
+  let dev=null,cre=null;
+  ps.forEach(p=>{if(tot[p.id]<0&&(!dev||tot[p.id]<tot[dev]))dev=p.id;if(tot[p.id]>0&&(!cre||tot[p.id]>tot[cre]))cre=p.id});
+  const acerto=dev&&cre?Math.min(-tot[dev],tot[cre]):0;
+  const deAnt=dev&&ant[dev]<0?Math.min(-ant[dev],acerto):0;
+  return {devedor:dev,credor:cre,acerto,deAnterior:deAnt};
 }
 
 function renderMes(){
@@ -546,11 +561,13 @@ function renderMes(){
   const pago=Math.max(0,r.total-r.falta);
   const resumo=`<div class="resumo"><small>${r.falta>0?"Falta pagar":"Despesas do mês"}</small><strong class="num">${brl(r.falta>0?r.falta:r.total)}</strong>
     <div class="rchips"><span class="rchip">Pago <b class="num">${brl(pago)}</b></span><span class="rchip">Total <b class="num">${brl(r.total)}</b></span></div></div>`;
+  const ac=acertoAcum(S.mesId,r);
   let hero;
-  if(r.acerto>0){
-    hero=`<p class="acerto"><span class="${corDe(r.devedor)}">${esc(nomeDe(r.devedor))}</span> transfere <span class="v num">${brl(r.acerto)}</span> para <span class="${corDe(r.credor)}">${esc(nomeDe(r.credor))}</span></p>
-    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em despesas.`:"Todas as despesas pagas. Só falta este acerto para fechar o mês."}</p>
-    <button class="btn" data-a="transf" data-de="${esc(r.devedor)}" data-para="${esc(r.credor)}" data-v="${r.acerto}">Registrar acerto</button>`;
+  if(ac.acerto>0){
+    hero=`<p class="acerto"><span class="${corDe(ac.devedor)}">${esc(nomeDe(ac.devedor))}</span> transfere <span class="v num">${brl(ac.acerto)}</span> para <span class="${corDe(ac.credor)}">${esc(nomeDe(ac.credor))}</span></p>
+    <p class="sub">${r.falta>0?`Considerando o que já foi pago. Ainda faltam <strong class="num">${brl(r.falta)}</strong> em despesas.`:r.contas.length?"Todas as despesas pagas. Só falta este acerto para fechar o mês.":"Nenhuma despesa neste mês."}</p>
+    ${ac.deAnterior>0?`<p class="sub">Inclui <strong class="num">${brl(ac.deAnterior)}</strong> de meses anteriores.</p>`:""}
+    <button class="btn" data-a="transf" data-de="${esc(ac.devedor)}" data-para="${esc(ac.credor)}" data-v="${ac.acerto}">Registrar acerto</button>`;
   }else if(r.falta>0){
     hero=`<p class="acerto">Ninguém deve nada ao outro</p><p class="sub">Até aqui, o que foi pago está equilibrado.</p>`;
   }else if(r.contas.length){
@@ -1095,7 +1112,6 @@ document.addEventListener("click",async e=>{
       else if(a==="novaconta")dlgEditConta(null);
       else if(a==="novoparcelamento")dlgTpl(null,true);
       else if(a==="pagprev")dlgPagar(b.dataset.id,b.dataset.mes);
-      else if(a==="transfprev")dlgTransf(b.dataset.de,b.dataset.para,Number(b.dataset.v),b.dataset.mes);
       else if(a==="rendas")dlgRendas();
       else if(a==="abrir"){b.disabled=true;await abrirMes(b.dataset.id)}
       else if(a==="delpag")await delPag(b.dataset.id);
