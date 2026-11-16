@@ -417,11 +417,11 @@ function calc(mes,pags){
   /* Quem entra na divisão deste mês, mais qualquer pessoa que já tenha pagamento nele. */
   const ps=todasPessoas().filter(p=>ativaEm(p,mes.id)||pags.some(g=>g.quem===p.id||g.de===p.id||g.para===p.id));
   const rendaTotal=ps.reduce((a,p)=>a+(rendas[p.id]||0),0);
-  const devido={},pago={},pagoConta={},devidoPago={};
-  ps.forEach(p=>{devido[p.id]=0;pago[p.id]=0;devidoPago[p.id]=0});
+  const devido={},pago={},pagoConta={},devidoPago={},pagoDesp={},transf={};
+  ps.forEach(p=>{devido[p.id]=0;pago[p.id]=0;devidoPago[p.id]=0;pagoDesp[p.id]=0;transf[p.id]=0});
   for(const g of pags){
-    if(g.tipo==="conta"){pago[g.quem]=(pago[g.quem]||0)+g.valor;pagoConta[g.contaId]=(pagoConta[g.contaId]||0)+g.valor}
-    else if(g.tipo==="transferencia"){pago[g.de]=(pago[g.de]||0)+g.valor;pago[g.para]=(pago[g.para]||0)-g.valor}
+    if(g.tipo==="conta"){pago[g.quem]=(pago[g.quem]||0)+g.valor;pagoDesp[g.quem]=(pagoDesp[g.quem]||0)+g.valor;pagoConta[g.contaId]=(pagoConta[g.contaId]||0)+g.valor}
+    else if(g.tipo==="transferencia"){pago[g.de]=(pago[g.de]||0)+g.valor;pago[g.para]=(pago[g.para]||0)-g.valor;transf[g.de]=(transf[g.de]||0)+g.valor;transf[g.para]=(transf[g.para]||0)-g.valor}
   }
   const contas=Object.entries(mes.contas||{}).map(([id,c])=>{
     const w=ps.map(p=>c.regra==="igual"?1:c.regra==="proporcional"?(rendas[p.id]||0):(Number(c.pct?.[p.id])||0));
@@ -440,7 +440,7 @@ function calc(mes,pags){
   let devedor=null,credor=null;
   ps.forEach(p=>{if(saldo[p.id]<0&&(!devedor||saldo[p.id]<saldo[devedor]))devedor=p.id;if(saldo[p.id]>0&&(!credor||saldo[p.id]>saldo[credor]))credor=p.id});
   const acerto=devedor&&credor?Math.min(-saldo[devedor],saldo[credor]):0;
-  return {ps,rendas,rendaTotal,contas,total,falta,devido,pago,saldo,resta,devedor,credor,acerto};
+  return {ps,rendas,rendaTotal,contas,total,falta,devido,pago,pagoDesp,transf,saldo,resta,devedor,credor,acerto};
 }
 function prazo(c,mesId){
   if(c.status==="pago"||c.status==="semvalor")return null;
@@ -542,17 +542,23 @@ function htmlPendencias(){
 }
 /* Acerto entre as pessoas somando o que ficou em aberto nos meses anteriores (saldo acumulado até o mês em tela). */
 function acertoAcum(mesId,r){
-  const ps=todasPessoas(),tot={},ant={};
-  ps.forEach(p=>{tot[p.id]=r.saldo[p.id]||0;ant[p.id]=0});
+  const ps=todasPessoas(),tot={},ant={},later={},viewT={};
+  ps.forEach(p=>{tot[p.id]=r.saldo[p.id]||0;ant[p.id]=0;later[p.id]=0;viewT[p.id]=r.transf[p.id]||0});
   for(const id of Object.keys(S.meses).sort()){
-    const m=S.meses[id];if(m.virtual||id>=mesId)continue;
+    const m=S.meses[id];if(m.virtual||id===mesId)continue;
     const x=calc(m,S.todosPags.filter(g=>g.mes===id));
-    ps.forEach(p=>{ant[p.id]+=x.saldo[p.id]||0;tot[p.id]+=x.saldo[p.id]||0});
+    if(id<mesId)ps.forEach(p=>{ant[p.id]+=x.saldo[p.id]||0;tot[p.id]+=x.saldo[p.id]||0});
+    else ps.forEach(p=>{later[p.id]+=x.transf[p.id]||0});
   }
+  /* Acertos lançados em meses seguintes quitam primeiro as dívidas mais antigas: o mês em tela
+     só mostra o que ainda continua em aberto depois deles. */
+  ps.forEach(p=>{const t=tot[p.id],l=later[p.id];tot[p.id]=t<0?Math.min(0,t+l):t>0?Math.max(0,t+l):0});
   let dev=null,cre=null;
   ps.forEach(p=>{if(tot[p.id]<0&&(!dev||tot[p.id]<tot[dev]))dev=p.id;if(tot[p.id]>0&&(!cre||tot[p.id]>tot[cre]))cre=p.id});
   const acerto=dev&&cre?Math.min(-tot[dev],tot[cre]):0;
-  const deAnt=dev&&ant[dev]<0?Math.min(-ant[dev],acerto):0;
+  /* Parte do acerto que vem de meses anteriores: a dívida antiga, descontado o que já foi acertado neste mês. */
+  const antAberta=dev&&ant[dev]<0?Math.max(0,-ant[dev]-Math.max(0,viewT[dev])):0;
+  const deAnt=Math.min(antAberta,acerto);
   return {devedor:dev,credor:cre,acerto,deAnterior:deAnt};
 }
 
@@ -579,14 +585,14 @@ function renderMes(){
     hero=`<p class="acerto">Mês fechado</p><p class="sub">Despesas pagas e acerto feito. Ninguém deve nada.</p>`;
   }else hero=`<p class="acerto">Nenhuma despesa neste mês</p><p class="sub">Toque em + para adicionar uma despesa.</p>`;
   const pes=r.ps.map((p,i)=>{
-    const dv=r.devido[p.id],pg=r.pago[p.id],rd=r.rendas[p.id]||0;
+    const dv=r.devido[p.id],pg=r.pago[p.id],tr=r.transf[p.id]||0,rd=r.rendas[p.id]||0;
     const w=dv>0?Math.min(100,Math.max(0,pg/dv*100)):0,s=r.resta[p.id];
     const sit=s>0?`a receber ${brl(s)}`:s<0?`falta ${brl(-s)}`:"em dia";
     return `<div class="pc" style="--c:${varCor(i)}">
       <span class="ico" aria-hidden="true">${esc((p.nome||"?")[0].toUpperCase())}</span><div class="pnome">${esc(p.nome)}</div>
       <div class="pval num">${brl(dv)}</div><div class="psub">parte do mês</div>
       <div class="barra" role="img" aria-label="${esc(p.nome)} pagou ${Math.round(w)}% da sua parte"><span style="width:${w}%"></span></div>
-      <div class="psub num">Pagou ${brl(pg)}</div><div class="psub num">${sit}</div>
+      <div class="psub num">Pagou ${brl(r.pagoDesp[p.id]||0)}</div>${tr?`<div class="psub num">${tr>0?"Enviou":"Recebeu"} ${brl(Math.abs(tr))} (acerto)</div>`:""}<div class="psub num">${sit}</div>
       <div class="psub num">${rd?pctf(dv/rd)+" da renda":"renda não informada"}</div></div>`;
   }).join("");
   const rendasTxt=r.ps.map(p=>esc(p.nome)+" "+brl(r.rendas[p.id]||0)).join(", ");
