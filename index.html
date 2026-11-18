@@ -182,6 +182,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .pend li button:hover{background:var(--surface)}
 .pend li button small{display:block;color:var(--muted);font-size:12px}
 .nota{overflow-wrap:anywhere}
+.avisovinc{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0 0;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 details.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:22px;min-height:24px}
 details.sec>summary::-webkit-details-marker{display:none}
 details.sec>summary h2{font-family:var(--display);font-weight:700;font-size:19px;margin:0;letter-spacing:-.01em}
@@ -354,6 +355,7 @@ const pagsMes=()=>S.todosPags.filter(p=>p.mes===S.mesId);
 const emailMeu=()=>String(S.session?.user?.email||"").toLowerCase();
 const grupoAtual=()=>S.grupos.find(g=>g.id===S.grupoId)||null;
 const membrosDoGrupo=()=>S.membros.filter(m=>m.grupo_id===S.grupoId);
+const semVinculo=()=>membrosDoGrupo().filter(m=>!m.morador_id||!todasPessoas().some(p=>p.id===m.morador_id));
 const souMembro=()=>membrosDoGrupo().some(m=>m.email===emailMeu());
 const meuMorador=()=>membrosDoGrupo().find(m=>m.email===emailMeu())?.morador_id||null;
 const salvarGrupo=id=>{try{localStorage.setItem("contas.grupo",id||"")}catch(e){}};
@@ -620,6 +622,7 @@ function renderMes(){
   const resumoContas=r.contas.length?r.contas.length+(r.contas.length===1?" despesa":" despesas")+(nPend?", "+nPend+(nPend===1?" em aberto":" em aberto"):", todas pagas"):"nenhuma despesa";
   const prev=mes.virtual?`<p class="nota previsao">Previsão. Nada foi lançado neste mês ainda: as despesas fixas usam o valor do último mês e as parcelas entram com o valor combinado. Ao registrar um pagamento ou editar algo aqui, o mês passa a valer.</p>`:"";
   app.innerHTML=`${resumo}${prev}
+  ${S.admin&&semVinculo().length?`<button type="button" class="nota avisovinc" data-tab="ajustes">${semVinculo().length===1?"1 e-mail com acesso sem pessoa vinculada":semVinculo().length+" e-mails com acesso sem pessoa vinculada"}. Toque para resolver em Ajustes.</button>`:""}
   ${htmlPendencias()}
   <div class="status">${hero}</div>
   <section style="margin-top:14px"><div class="pgrid">${pes}</div><div class="rendas"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><span>Rendas: ${rendasTxt}</span><button class="link" data-a="rendas">Editar</button></div></div></section>
@@ -672,11 +675,11 @@ function renderAjustes(){
   }
   if(S.admin){
     const ms=membrosDoGrupo().slice().sort((a,b)=>a.email.localeCompare(b.email));
-    h+=`<section><div class="sec-h"><h2>Pessoas e acessos</h2><button class="link" data-a="addpessoa">Adicionar pessoa</button></div>
+    h+=`<section><div class="sec-h"><h2>Pessoas e acessos</h2><button class="link" data-a="addpessoa">Adicionar</button></div>
     <ul class="lista">${ms.map(m=>`<li class="pr"><div><span class="em">${esc(m.email)}</span>
-      <select data-vinculo="${esc(m.email)}" aria-label="Pessoa da divisão para ${esc(m.email)}"><option value="">Sem vínculo com a divisão</option>${ps.map(p=>`<option value="${esc(p.id)}" ${p.id===m.morador_id?"selected":""}>${esc(p.nome)}</option>`).join("")}</select></div>
+      <select data-vinculo="${esc(m.email)}" aria-label="Pessoa da divisão para ${esc(m.email)}"><option value="">Escolha quem é esta pessoa</option>${ps.map(p=>`<option value="${esc(p.id)}" ${p.id===m.morador_id?"selected":""}>${esc(p.nome)}</option>`).join("")}</select></div>
       <button class="x" data-a="rmmembro" data-email="${esc(m.email)}" aria-label="Remover acesso de ${esc(m.email)}">×</button></li>`).join("")||`<li class="vazio">Ninguém tem acesso a este grupo.</li>`}</ul>
-    <p class="nota">Cada e-mail entra no app pelo link de acesso e passa a ver este grupo. O vínculo indica quem é essa pessoa na divisão das despesas.</p></section>
+    ${semVinculo().length?`<p class="nota" style="color:var(--warn,#F5C26B)">${semVinculo().length===1?"1 e-mail tem acesso, mas ainda não foi ligado a uma pessoa":semVinculo().length+" e-mails têm acesso, mas ainda não foram ligados a uma pessoa"}. Escolha a pessoa no seletor para que o app a reconheça.</p>`:""}<p class="nota">Cada e-mail entra no app pelo link de acesso e passa a ver este grupo. O vínculo indica quem é essa pessoa na divisão das despesas.</p></section>
     <section><div class="sec-h"><h2>Este grupo</h2></div><div class="card">
       <p><strong>${esc(g.nome)}</strong></p>
       <div class="hero-acts" style="margin-top:0"><button class="btn small ghost" data-a="renomear">Renomear</button><button class="btn small ghost" data-a="novogrupo">Novo grupo</button><button class="btn small danger" data-a="excluirgrupo">Excluir grupo</button></div></div></section>`;
@@ -755,21 +758,36 @@ function dlgExcluirGrupo(){
     });
 }
 function dlgAddPessoa(){
-  openDlg("Adicionar pessoa","A pessoa entra no app com este e-mail, por link de acesso, e passa a ver o grupo. Ela só divide as despesas a partir do mês escolhido; os meses anteriores não mudam.",
-    campo("Nome",`<input name="nome" required maxlength="30">`)+campo("E-mail",`<input name="email" type="email" required autocomplete="off">`)+
-    campo("Participa a partir de",`<select name="desde">${optMeses(hojeId(),false)}</select>`)+
+  const ps=todasPessoas();
+  openDlg("Adicionar pessoa ou acesso","Libere o app para um e-mail. Ele entra por link de acesso e passa a ver este grupo.",
+    campo("O que você quer fazer?",`<select name="modo" id="selModo"><option value="nova">Cadastrar uma pessoa nova na divisão</option>${ps.length?`<option value="vinc">Só dar acesso a uma pessoa que já existe</option>`:""}</select>`)+
+    `<div id="boxNova">${campo("Nome",`<input name="nome" maxlength="30" required>`)}${campo("Participa a partir de",`<select name="desde">${optMeses(hojeId(),false)}</select>`)}</div>`+
+    `<div id="boxVinc" hidden style="display:none">${campo("Quem é esta pessoa?",`<select name="morador">${ps.map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join("")}</select>`)}<p class="nota" style="margin:0 0 8px">Serve para um segundo e-mail ou um aparelho novo de quem já está na divisão. Nada muda nos valores.</p></div>`+
+    campo("E-mail",`<input name="email" type="email" required autocomplete="off">`)+
     `<p class="nota" style="margin:0">Endereço do app para enviar à pessoa: <strong style="word-break:break-all">${esc(location.origin+location.pathname)}</strong></p>`,
     cancelar+`<button class="btn" value="ok">Adicionar</button>`,
     async fd=>{
-      const nome=String(fd.get("nome")).trim(),email=String(fd.get("email")).trim().toLowerCase();
-      if(!nome||!EMAIL.test(email)){toast("Informe um nome e um e-mail válido.");return false}
+      const modo=String(fd.get("modo")),email=String(fd.get("email")).trim().toLowerCase();
+      if(!EMAIL.test(email)){toast("Informe um e-mail válido.");return false}
       if(membrosDoGrupo().some(m=>m.email===email)){toast("Este e-mail já tem acesso ao grupo.");return false}
+      if(modo==="vinc"){
+        const mor=String(fd.get("morador"));
+        if(!ps.some(p=>p.id===mor)){toast("Escolha a pessoa.");return false}
+        await q(S.sb.from("grupo_membros").insert({grupo_id:gid(),email,morador_id:mor}));
+        toast("Acesso liberado para "+nomeDe(mor)+".");return;
+      }
+      const nome=String(fd.get("nome")).trim();
+      if(!nome){toast("Informe o nome.");return false}
       const id=slug(nome);
       await q(S.sb.from("moradores").insert({grupo_id:gid(),id,nome,ordem:todasPessoas().length,desde:String(fd.get("desde"))||null}));
       try{await q(S.sb.from("grupo_membros").insert({grupo_id:gid(),email,morador_id:id}))}
       catch(err){await S.sb.from("moradores").delete().eq("grupo_id",gid()).eq("id",id);throw err}
       toast("Pessoa adicionada.");
     });
+  const alt=()=>{const v=$("#selModo").value==="vinc",bn=$("#boxNova"),bv=$("#boxVinc");
+    bn.hidden=v;bn.style.display=v?"none":"";bv.hidden=!v;bv.style.display=v?"":"none";
+    const n=bn.querySelector('[name="nome"]');if(n)n.required=!v};
+  $("#selModo").addEventListener("change",alt);
 }
 async function removerAcesso(email){
   if(!confirm("Remover o acesso de "+email+" a este grupo? As despesas e pagamentos continuam no grupo."))return;
