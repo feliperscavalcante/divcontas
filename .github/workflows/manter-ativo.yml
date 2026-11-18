@@ -1,0 +1,24 @@
+# Evita que o projeto gratuito do Supabase seja pausado por falta de uso.
+# Duas vezes por semana, faz uma consulta simples ao banco. Se o Supabase nao responder, a execucao
+# aparece como falha (vermelha) na aba Actions e o GitHub envia um e-mail avisando.
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    - cron: "17 11 * * 1,4"   # segundas e quintas, 08:17 no horario de Brasilia
+  workflow_dispatch:           # permite rodar na mao: aba Actions > Manter Supabase ativo > Run workflow
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consultar o Supabase
+        run: |
+          URL=$(grep -o 'url: *"[^"]*"' config.js | head -1 | sed 's/.*"\(.*\)"/\1/')
+          KEY=$(grep -o 'key: *"[^"]*"' config.js | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "config.js sem url ou key"; exit 1; fi
+          CODE=$(curl -s -o /dev/null -m 30 -w "%{http_code}" "$URL/rest/v1/grupos?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true)
+          echo "Resposta do Supabase: $CODE"
+          # 2xx ou 4xx significa que o banco respondeu (o acesso anonimo e barrado de proposito). 5xx ou vazio: fora do ar ou pausado.
+          case "$CODE" in 2??|4??) exit 0 ;; *) echo "Supabase nao respondeu. Veja se o projeto esta pausado em supabase.com/dashboard"; exit 1 ;; esac
